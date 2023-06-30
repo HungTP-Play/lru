@@ -54,6 +54,7 @@ services:
       - redirect
     volumes:
       - ./gateway:/app
+      - ./logs:/var/log
     command: ["go", "run", "main.go"]
     ports:
       - 3333:3333
@@ -84,6 +85,7 @@ services:
       - 1111:1111
     volumes:
       - ./mapper:/app
+      - ./logs:/var/log
     command: ["go", "run", "main.go"]
   redirect:
     image: lru-redirect:local
@@ -112,6 +114,7 @@ services:
       - 2222:2222
     volumes:
       - ./redirect:/app
+      - ./logs:/var/log
     command: ["go", "run", "main.go"]
   # prometheus:
   #   image: prom/prometheus
