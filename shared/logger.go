@@ -38,6 +38,11 @@ func NewLogger(filePath string, maxAge int, maxSize int, level string, appName s
 	}
 }
 
+// Add new field to the logger fields (to head)
+func unshift(fields []zap.Field, field zap.Field) []zap.Field {
+	return append([]zap.Field{field}, fields...)
+}
+
 func (l *Logger) Init() {
 
 	// file syncer
@@ -55,21 +60,17 @@ func (l *Logger) Init() {
 }
 
 func (l *Logger) Info(msg string, fields ...zap.Field) {
-	l.logger.Info(fmt.Sprintf("service::%s; message::%s", l.AppName, msg), fields...)
+	l.logger.Info(msg, unshift(fields, zap.String("service", l.AppName))...)
 }
 
 func (l *Logger) Error(msg string, fields ...zap.Field) {
-	l.logger.Error(fmt.Sprintf("service::%s; message::%s", l.AppName, msg), fields...)
-}
-
-func (l *Logger) Fatal(msg string, fields ...zap.Field) {
-	l.logger.Fatal(fmt.Sprintf("service::%s; message::%s", l.AppName, msg), fields...)
+	l.logger.Error(msg, unshift(fields, zap.String("service", l.AppName))...)
 }
 
 func (l *Logger) Debug(msg string, fields ...zap.Field) {
-	l.logger.Debug(fmt.Sprintf("service::%s; message::%s", l.AppName, msg), fields...)
+	l.logger.Debug(msg, unshift(fields, zap.String("service", l.AppName))...)
 }
 
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
-	l.logger.Warn(fmt.Sprintf("service::%s; message::%s", l.AppName, msg), fields...)
+	l.logger.Warn(msg, unshift(fields, zap.String("service", l.AppName))...)
 }

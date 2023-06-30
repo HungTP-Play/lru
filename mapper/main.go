@@ -11,12 +11,18 @@ import (
 )
 
 var mapRepo *repo.UrlMappingRepo
+var logger *shared.Logger
 
 func init() {
 	mapRepo = repo.NewUrlMappingRepo("")
 
 	// Auto migrate
 	mapRepo.DB.Migrate(&model.UrlMapping{})
+
+	logger = shared.NewLogger("mapper.log", 3, 1024, "info", "mapper")
+	logger.Init()
+
+	logger.Info("Init done!!!")
 }
 
 func onGratefulShutDown() {
