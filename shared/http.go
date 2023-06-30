@@ -3,6 +3,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -57,7 +58,24 @@ func (h *HttpService) CtxGet(key string) interface{} {
 	return h.AppCtx.Value(key)
 }
 
-func (h *HttpService) Start() error {
+func (h *HttpService) Start(onGratefulShutDown func()) error {
 	port := fmt.Sprintf(":%s", h.Port)
-	return h.App.Listen(port)
+
+	// Do prepare for gratefully shutdown
+	shutdownChan := make(chan os.Signal, 1)
+	go func() {
+		<-shutdownChan
+		fmt.Println("Shutting down the server...")
+		h.App.Shutdown()
+	}()
+
+	err := h.App.Listen(port)
+	if err != nil {
+		return err
+	}
+
+	// Clean up
+	close(shutdownChan)
+
+	return nil
 }
