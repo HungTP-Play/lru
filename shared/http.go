@@ -77,5 +77,6 @@ func (h *HttpService) Start(onGratefulShutDown func()) error {
 	// Clean up
 	close(shutdownChan)
 
+	onGratefulShutDown()
 	return nil
 }

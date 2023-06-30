@@ -19,6 +19,11 @@ func init() {
 	mapRepo.DB.Migrate(&model.UrlMapping{})
 }
 
+func onGratefulShutDown() {
+	fmt.Println("Shutting down gracefully")
+	mapRepo.DB.Close()
+}
+
 func mapHandler(c *fiber.Ctx) error {
 	var mapUrlRequest shared.MapUrlRequest
 	err := c.BodyParser(&mapUrlRequest)
