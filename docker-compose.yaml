@@ -1,0 +1,180 @@
+version: '3.7'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - 6379:6379
+    volumes:
+      - ~/data/lru/redis:/data
+  rabbitmq:
+    image: rabbitmq:alpine
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ~/data/lru/rabbitmq:/var/lib/rabbitmq
+  postgres:
+    image: postgres:15.3-alpine3.17
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ~/data/lru/postgres:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - 5432:5432
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - 3000:3000
+    volumes:
+      - ./frontend:/app
+    environment:
+      - API_URL=http://localhost:3333
+    command: ["npm", "run", "dev"]
+  gateway:
+    image: lru-gateway:local
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    environment:
+      - PORT=3333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MAPPER_HOST=mapper
+      - MAPPER_PORT=1111
+      - REDIRECT_HOST=redirect
+      - REDIRECT_PORT=2222
+    depends_on:
+      - redis
+      - mapper
+      - redirect
+    volumes:
+      - ./gateway:/app
+    command: ["go", "run", "main.go"]
+    ports:
+      - 3333:3333
+  mapper:
+    image: lru-mapper:local
+    build:
+      context: ./mapper
+      dockerfile: Dockerfile
+    environment:
+      - PORT=1111
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=lru_mapper
+      - CACHE_HOST=redis
+      - CACHE_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_QUEUE=map
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    ports:
+      - 1111:1111
+    volumes:
+      - ./mapper:/app
+    command: ["go", "run", "main.go"]
+  redirect:
+    image: lru-redirect:local
+    build:
+      context: ./redirect
+      dockerfile: Dockerfile
+    environment:
+      - PORT=2222
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_QUEUE=map
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=lru_redirect
+    depends_on:
+      - rabbitmq
+      - redis
+      - postgres
+    ports:
+      - 2222:2222
+    volumes:
+      - ./redirect:/app
+    command: ["go", "run", "main.go"]
+  # prometheus:
+  #   image: prom/prometheus
+  #   ports:
+  #     - 9090:9090
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+  #     - '--web.console.templates=/usr/share/prometheus/consoles'
+  #   expose:
+  #     - 9090
+  # grafana:
+  #   image: grafana/grafana
+  #   ports:
+  #     - 3001:3000
+  #   volumes:
+  #     - ./grafana:/var/lib/grafana
+  #     - ./grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+  #   environment:
+  #     - GF_AUTH_ANONYMOUS_ENABLED=true
+  #     - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+  #     - GF_DISABLE_LOGIN_FORM=true
+  #     - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+  #   depends_on:
+  #     - prometheus
+  # loki:
+  #   image: grafana/loki:main
+  #   ports:
+  #     - 3100:3100
+  #   command: -config.file=/etc/loki/local-config.yaml
+  #   volumes:
+  #     - ./loki:/etc/loki
+  #     - ./loki-config.yaml:/etc/loki/local-config.yaml
+  #   depends_on:
+  #     - prometheus
+  # promtail:
+  #   image: grafana/promtail:main
+  #   volumes:
+  #     - ./promtail:/etc/promtail
+  #     - ./promtail-config.yaml:/etc/promtail/local-config.yaml
+  #   command: -config.file=/etc/promtail/local-config.yaml
+  #   depends_on:
+  #     - prometheus
+  # otel-collector:
+  #   image: otel/opentelemetry-collector:0.80.0
+  #   ports:
+  #     - 4317:4317
+  #   volumes:
+  #     - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+  #   command: --config=/etc/otel-collector-config.yaml
+  #   depends_on:
+  #     - prometheus
+  # tempo:
+  #   image: grafana/tempo:main
+  #   ports:
+  #     - 3101:3100
+  #   command: -config.file=/etc/tempo/local-config.yaml
+  #   volumes:
+  #     - ./tempo:/etc/tempo
+  #     - ./tempo-config.yaml:/etc/tempo/local-config.yaml
+  #   depends_on:
+  #     - prometheus
+
