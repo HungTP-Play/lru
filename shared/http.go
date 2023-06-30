@@ -9,13 +9,13 @@ import (
 
 type HttpService struct {
 	Name    string `json:"name"`
-	Port    int    `json:"port"`
+	Port    string `json:"port"`
 	Prefork bool   `json:"prefork"`
 	App     *fiber.App
 	AppCtx  context.Context
 }
 
-func NewHttpService(name string, port int, prefork bool) *HttpService {
+func NewHttpService(name string, port string, prefork bool) *HttpService {
 	return &HttpService{
 		Name:    name,
 		Port:    port,
@@ -25,7 +25,9 @@ func NewHttpService(name string, port int, prefork bool) *HttpService {
 }
 
 func (h *HttpService) Init() {
-	h.App = fiber.New()
+	h.App = fiber.New(fiber.Config{
+		Prefork: h.Prefork,
+	})
 }
 
 func (h *HttpService) UseMiddleware(args ...interface{}) {
@@ -56,5 +58,6 @@ func (h *HttpService) CtxGet(key string) interface{} {
 }
 
 func (h *HttpService) Start() error {
-	return h.App.Listen(fmt.Sprintf(":%d", h.Port))
+	port := fmt.Sprintf(":%s", h.Port)
+	return h.App.Listen(port)
 }

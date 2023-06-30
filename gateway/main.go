@@ -6,5 +6,4 @@ import (
 
 func main() {
 	fmt.Printf("This is a main %v", "gateway")
-
 }
