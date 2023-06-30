@@ -2,10 +2,8 @@ module github.com/HungTP-Play/lru/gateway
 
 go 1.19
 
-replace github.com/HungTP-Play/lru/shared => ../shared
-
 require (
-	github.com/HungTP-Play/lru/shared v0.0.0-20230630013307-f269fabcd0a1
+	github.com/HungTP-Play/lru/shared v0.0.0-20230630013837-6355c8f13c91
 	github.com/gofiber/fiber/v2 v2.47.0
 )
 

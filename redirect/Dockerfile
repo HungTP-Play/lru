@@ -8,6 +8,6 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o redirect ./cmd/redirect
+RUN go build -o redirect .
 
 CMD ["./redirect"]

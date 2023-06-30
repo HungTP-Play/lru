@@ -8,6 +8,6 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o mapper ./cmd/mapper
+RUN go build -o mapper .
 
 CMD ["./mapper"]

@@ -8,6 +8,6 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o gateway ./cmd/gateway
+RUN go build -o gateway .
 
 CMD ["./gateway"]
