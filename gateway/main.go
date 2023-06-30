@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/HungTP-Play/lru/gateway/dto"
+	"github.com/HungTP-Play/lru/gateway/util"
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 )
@@ -17,7 +18,26 @@ func shortenHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return c.SendString("Error")
 	}
-	return c.JSON(shortenDto)
+
+	mapUrlRequest := shared.MapUrlRequest{
+		Id:  util.GenUUID(),
+		Url: shortenDto.Url,
+	}
+
+	httpClient := util.GetHttpClient()
+	mapperUrl := util.GetMapperUrl()
+
+	var mapUrlResponse shared.MapUrlResponse
+	resp, err := httpClient.R().SetBody(mapUrlRequest).SetSuccessResult(&mapUrlResponse).Post(fmt.Sprintf("%v/map", mapperUrl))
+	if err != nil {
+		return c.SendString("Error")
+	}
+
+	if resp.GetStatusCode() != 200 {
+		return c.SendString("Error")
+	}
+
+	return c.Status(200).JSON(mapUrlResponse)
 }
 
 func redirectHandler(c *fiber.Ctx) error {
