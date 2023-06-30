@@ -75,3 +75,21 @@ func (db *PostgresDB) Find(model interface{}, query interface{}, args ...interfa
 	}
 	return nil
 }
+
+func (db *PostgresDB) Count(model interface{}, query interface{}, args ...interface{}) (int64, error) {
+	var count int64
+	result := db.DB.Model(model).Where(query, args...).Count(&count)
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return count, nil
+}
+
+func (db *PostgresDB) CountTable(model interface{}) (int64, error) {
+	var count int64
+	result := db.DB.Model(model).Count(&count)
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return count, nil
+}
