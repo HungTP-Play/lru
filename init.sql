@@ -1,2 +1,2 @@
-CREATE DATABASE lru_mapper IF NOT EXISTS;
-CREATE DATABASE lru_redirect IF NOT EXISTS;
+CREATE DATABASE lru_mapper;
+CREATE DATABASE lru_redirect;

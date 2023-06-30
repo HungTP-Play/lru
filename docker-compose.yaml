@@ -34,7 +34,7 @@ services:
       - ./frontend:/app
     environment:
       - API_URL=http://localhost:3333
-    command: ["npm", "run", "dev"]
+    command: ["npm", "run", "start"]
   gateway:
     image: lru-gateway:local
     build:
