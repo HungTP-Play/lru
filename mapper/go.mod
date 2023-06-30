@@ -2,12 +2,10 @@ module github.com/HungTP-Play/lru/mapper
 
 go 1.19
 
-require (
-	github.com/HungTP-Play/lru/shared v0.0.0-20230630100651-44a741ae7117
-	github.com/gofiber/fiber/v2 v2.47.0
-)
+require github.com/gofiber/fiber/v2 v2.47.0
 
 require (
+	github.com/HungTP-Play/lru/shared v0.0.1 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

@@ -1,5 +1,7 @@
 github.com/HungTP-Play/lru/shared v0.0.0-20230630100651-44a741ae7117 h1:hgoBvhLyivCSsthv14rZJ1NcQy09ZUYZY8O2b3Hfr1U=
 github.com/HungTP-Play/lru/shared v0.0.0-20230630100651-44a741ae7117/go.mod h1:MmQvs7oxHOWJ6tpeOdf8iN0cQOJ9x9uPqStkB8xFh/M=
+github.com/HungTP-Play/lru/shared v0.0.1 h1:bzMBbCgAoXq2XdC4dtT2WIJCGiIp2M2IKuY3V0NbwTE=
+github.com/HungTP-Play/lru/shared v0.0.1/go.mod h1:MmQvs7oxHOWJ6tpeOdf8iN0cQOJ9x9uPqStkB8xFh/M=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

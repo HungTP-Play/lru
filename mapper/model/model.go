@@ -1,7 +1,7 @@
 package model
 
 type UrlMapping struct {
-	ID       int64  `json:"id" gorm:"primary_key"`
-	ShortUrl string `json:"short_url" gorm:"unique,index"`
-	LongUrl  string `json:"long_url"  gorm:"unique,index"`
+	ID       int64  `gorm:"primary_key" json:"id"`
+	ShortUrl string `gorm:"index" json:"short_url" `
+	LongUrl  string `gorm:"index" json:"long_url"`
 }

@@ -58,5 +58,5 @@ func main() {
 
 	gatewayService.Routes("/map", mapHandler, "POST")
 
-	gatewayService.Start()
+	gatewayService.Start(onGratefulShutDown)
 }
