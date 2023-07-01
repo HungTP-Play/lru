@@ -22,28 +22,16 @@ type RedirectResponse struct {
 	OriginalUrl string `json:"originalUrl"`
 }
 
-type MapToRedirectRequest struct {
-	Id           string `json:"id"`
-	Url          string `json:"url"`
-	ShortenedUrl string `json:"shortenedUrl"`
-}
-
-type MapToAnalyticsRequest struct {
-	Id           string `json:"id"`
-	Url          string `json:"url"`
-	ShortenedUrl string `json:"shortenedUrl"`
-}
-
-type RedirectToAnalyticsRequest struct {
-	Id          string `json:"id"`
-	Url         string `json:"url"`
-	OriginalUrl string `json:"originalUrl"`
-}
-
 type AnalyticMessage struct {
 	Id        string `json:"id"`
 	Url       string `json:"url"`
 	Shorten   string `json:"shorten"`
 	Type      string `json:"type"` // Can be "map" or "redirect"
 	Timestamp int64  `json:"timestamp"`
+}
+
+type RedirectMessage struct {
+	Id      string `json:"id"`
+	Url     string `json:"url"`
+	Shorten string `json:"shorten"`
 }

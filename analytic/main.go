@@ -14,7 +14,7 @@ var rabbitmq *shared.RabbitMQ
 
 func init() {
 	// Init logger
-	logger := shared.NewLogger("analytic.log", 3, 1024, "info", "redirect")
+	logger := shared.NewLogger("analytic.log", 3, 1024, "info", "analytic")
 	logger.Init()
 
 	// Init rabbitmq
@@ -26,13 +26,16 @@ func init() {
 
 func handleAnalytic(msg []byte) {
 	var analytic shared.AnalyticMessage
+	innerLogger := shared.NewLogger("analytic.log", 3, 1024, "info", "analytic")
+	innerLogger.Init()
+
 	err := json.Unmarshal(msg, &analytic)
 	if err != nil {
-		logger.Error("Cannot unmarshal analytic message: %s", zap.Error(err))
+		innerLogger.Error("Cannot unmarshal analytic message: %s", zap.Error(err))
 		return
 	}
 
-	logger.Info("Analytic message: %s", zap.String("id", analytic.Id), zap.String("url", analytic.Url), zap.String("shorten", analytic.Shorten), zap.String("type", analytic.Type))
+	innerLogger.Info("Analytic message: %s", zap.String("id", analytic.Id), zap.String("url", analytic.Url), zap.String("shorten", analytic.Shorten), zap.String("type", analytic.Type))
 }
 
 func main() {

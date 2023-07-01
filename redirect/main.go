@@ -33,7 +33,8 @@ func redirectHandler(c *fiber.Ctx) error {
 }
 
 func redirectQueueHandler(msg []byte) {
-	fmt.Println(string(msg))
+	innerLogger := shared.NewLogger("redirect.log", 3, 1024, "info", "redirect")
+	innerLogger.Init()
 }
 
 func main() {
