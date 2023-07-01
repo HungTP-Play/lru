@@ -3,7 +3,7 @@ module github.com/HungTP-Play/lru/gateway
 go 1.19
 
 require (
-	github.com/HungTP-Play/lru/shared v0.1.1
+	github.com/HungTP-Play/lru/shared v0.3.0
 	github.com/gofiber/fiber/v2 v2.47.0
 	github.com/imroc/req/v3 v3.37.2
 	github.com/lithammer/shortuuid/v4 v4.0.0
@@ -33,6 +33,7 @@ require (
 	github.com/quic-go/qtls-go1-19 v0.3.2 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.0 // indirect
 	github.com/quic-go/quic-go v0.36.0 // indirect
+	github.com/rabbitmq/amqp091-go v1.8.1 // indirect
 	github.com/refraction-networking/utls v1.3.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/savsgio/dictpool v0.0.0-20221023140959-7bf2e61cea94 // indirect

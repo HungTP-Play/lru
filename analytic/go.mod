@@ -1,4 +1,4 @@
-module github.com/HungTP-Play/lru/redirect
+module github.com/HungTP-Play/lru/analytic
 
 go 1.19
 

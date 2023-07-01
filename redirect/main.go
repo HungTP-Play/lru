@@ -51,5 +51,6 @@ func main() {
 	go func() {
 		rabbitmq.Consume(redirectQueue, redirectQueueHandler, 9)
 	}()
+
 	gatewayService.Start(onGratefulShutDown)
 }
