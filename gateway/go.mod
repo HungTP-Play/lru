@@ -3,7 +3,7 @@ module github.com/HungTP-Play/lru/gateway
 go 1.19
 
 require (
-	github.com/HungTP-Play/lru/shared v0.4.3
+	github.com/HungTP-Play/lru/shared v0.5.1
 	github.com/gofiber/fiber/v2 v2.47.0
 	github.com/imroc/req/v3 v3.37.2
 	github.com/lithammer/shortuuid/v4 v4.0.0

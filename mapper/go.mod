@@ -3,7 +3,7 @@ module github.com/HungTP-Play/lru/mapper
 go 1.19
 
 require (
-	github.com/HungTP-Play/lru/shared v0.4.3
+	github.com/HungTP-Play/lru/shared v0.5.1
 	github.com/gofiber/fiber/v2 v2.47.0
 )
 

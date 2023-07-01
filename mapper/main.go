@@ -66,10 +66,16 @@ func mapHandler(c *fiber.Ctx) error {
 	// Publish to rabbitmq
 	go func() {
 		redirectQueue := os.Getenv("REDIRECT_QUEUE")
-		err = rabbitmq.Publish(redirectQueue, mapUrlResponse)
-		if err != nil {
-			logger.Error("Cannot publish redirect", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
+		redirectMessage := &shared.RedirectMessage{
+			Id:      mapUrlRequest.Id,
+			Url:     mapUrlRequest.Url,
+			Shorten: shortUrl,
 		}
+		err = rabbitmq.Publish(redirectQueue, redirectMessage)
+		if err != nil {
+			logger.Error("Cannot publish redirect", zap.String("id", redirectMessage.Id), zap.Int("code", 500), zap.Error(err))
+		}
+		logger.Info("Publish redirect", zap.String("id", redirectMessage.Id), zap.String("shortUrl", shortUrl))
 	}()
 
 	go func() {
@@ -86,6 +92,7 @@ func mapHandler(c *fiber.Ctx) error {
 		if err != nil {
 			logger.Error("Cannot publish analytic", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
 		}
+		logger.Info("Publish analytic", zap.String("id", mapUrlRequest.Id), zap.String("shortUrl", shortUrl))
 	}()
 
 	logger.Info("Map response", zap.String("id", mapUrlRequest.Id), zap.Int("code", 200), zap.String("shortUrl", shortUrl))

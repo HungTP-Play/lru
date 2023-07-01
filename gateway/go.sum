@@ -6,6 +6,10 @@ github.com/HungTP-Play/lru/shared v0.3.0 h1:Do9NXJjmA6OPRbRrM5W7iZsV1GJB+hSbT+nq
 github.com/HungTP-Play/lru/shared v0.3.0/go.mod h1:kF2RhTEXq61/iP5FBf/ufPovzz0HqghM7JM3gcTo/0M=
 github.com/HungTP-Play/lru/shared v0.4.3 h1:Ww/vS3xKQ55vUHeJ0cjBp0H1W7BP+4/3MuFuqpajIFw=
 github.com/HungTP-Play/lru/shared v0.4.3/go.mod h1:kF2RhTEXq61/iP5FBf/ufPovzz0HqghM7JM3gcTo/0M=
+github.com/HungTP-Play/lru/shared v0.5.0 h1:mp6XqtxlYs4WJGkpDfcrCStFxAdu4tTmNvGng3CtnG0=
+github.com/HungTP-Play/lru/shared v0.5.0/go.mod h1:kF2RhTEXq61/iP5FBf/ufPovzz0HqghM7JM3gcTo/0M=
+github.com/HungTP-Play/lru/shared v0.5.1 h1:Jg8uWjkPuy/NI8JwOoJzhKQXqIE6vtnLqhjc/PfQwbc=
+github.com/HungTP-Play/lru/shared v0.5.1/go.mod h1:kF2RhTEXq61/iP5FBf/ufPovzz0HqghM7JM3gcTo/0M=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

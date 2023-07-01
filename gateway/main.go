@@ -84,8 +84,51 @@ func shortenHandler(c *fiber.Ctx) error {
 }
 
 func redirectHandler(c *fiber.Ctx) error {
-	id := c.Params("id")
-	return c.SendString(fmt.Sprintf("Redirect to %v", id))
+	var body map[string]string
+	requestId := util.GenUUID()
+	err := c.BodyParser(&body)
+	if err != nil {
+		logger.Error("CannotParseBody", zap.Int("code", 400), zap.Error(err))
+		return c.Status(400).JSON(map[string]interface{}{
+			"error": "Cannot parse body",
+		})
+	}
+
+	redirectRequest := shared.RedirectRequest{
+		Id:  requestId,
+		Url: body["url"],
+	}
+
+	httpClient := util.GetHttpClient()
+	mapperUrl := util.GetRedirectUrl()
+
+	var redirectResponse shared.RedirectResponse
+	logger.Info("SendToRedirect", zap.String("id", requestId), zap.String("url", redirectRequest.Url))
+	resp, err := httpClient.R().SetBody(redirectRequest).SetSuccessResult(&redirectResponse).Get(fmt.Sprintf("%v/redirect", mapperUrl))
+	if err != nil {
+		logger.Error("CannotSendToRedirect", zap.String("id", requestId), zap.Int("code", 500), zap.Error(err))
+		return c.Status(500).JSON(map[string]interface{}{
+			"error": "Internal server error",
+		})
+	}
+
+	if resp.GetStatusCode() >= 500 {
+		logger.Error("RedirectResultError__ServerError", zap.String("id", requestId), zap.Int("code", resp.GetStatusCode()), zap.Error(err))
+		return c.Status(resp.GetStatusCode()).JSON(map[string]interface{}{
+			"error": "Internal server error",
+		})
+	}
+
+	if resp.GetStatusCode() >= 400 {
+		logger.Error("RedirectResultError__ClientError", zap.String("id", requestId), zap.Int("code", resp.GetStatusCode()), zap.Error(err))
+		return c.Status(resp.GetStatusCode()).JSON(map[string]interface{}{
+			"error": "Bad request",
+		})
+	}
+
+	logger.Info("RedirectUrl", zap.String("id", requestId), zap.Int("code", 200), zap.String("url", redirectResponse.Url))
+	return c.Status(200).JSON(redirectResponse)
+
 }
 
 func main() {
@@ -98,7 +141,7 @@ func main() {
 	gatewayService.Init()
 
 	gatewayService.Routes("/shorten", shortenHandler, "POST")
-	gatewayService.Routes("/redirect/:id", redirectHandler, "GET")
+	gatewayService.Routes("/redirect", redirectHandler, "GET")
 
 	gatewayService.Start(onGratefulShutDown)
 }
