@@ -74,7 +74,7 @@ func (r *RabbitMQ) Publish(queue string, message interface{}) error {
 		return err
 	}
 
-	err = channel.PublishWithContext(r.ctx, "default", queue, true, false, amqp.Publishing{
+	err = channel.PublishWithContext(r.ctx, "", queue, true, false, amqp.Publishing{
 		ContentType: "application/json",
 		Body:        body,
 	})
