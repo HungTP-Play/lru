@@ -81,7 +81,7 @@ func (r *RabbitMQ) Publish(queue string, message interface{}) error {
 	return err
 }
 
-func (r *RabbitMQ) Consume(queue string, callback func([]byte), numberOfWorker int) error {
+func (r *RabbitMQ) Consume(queue string, callback func([]byte) error, numberOfWorker int) error {
 	if r.connection.IsClosed() {
 		r.Connect(0)
 	}
@@ -107,7 +107,10 @@ func (r *RabbitMQ) Consume(queue string, callback func([]byte), numberOfWorker i
 	for i := 0; i < numberOfWorker; i++ {
 		go func() {
 			for d := range msgs {
-				callback(d.Body)
+				err := callback(d.Body)
+				if err != nil {
+					d.Nack(false, true)
+				}
 				d.Ack(false)
 			}
 		}()
