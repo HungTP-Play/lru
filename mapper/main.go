@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/HungTP-Play/lru/mapper/model"
 	"github.com/HungTP-Play/lru/mapper/repo"
@@ -12,6 +13,7 @@ import (
 
 var mapRepo *repo.UrlMappingRepo
 var logger *shared.Logger
+var rabbitmq *shared.RabbitMQ
 
 func init() {
 	mapRepo = repo.NewUrlMappingRepo("")
@@ -21,6 +23,10 @@ func init() {
 
 	logger = shared.NewLogger("mapper.log", 3, 1024, "info", "mapper")
 	logger.Init()
+
+	// Init rabbitmq
+	rabbitmq = shared.NewRabbitMQ("")
+	rabbitmq.Connect(10 * time.Second)
 
 	logger.Info("Init done!!!")
 }
@@ -56,6 +62,15 @@ func mapHandler(c *fiber.Ctx) error {
 		Id:        mapUrlRequest.Id,
 	}
 
+	// Publish to rabbitmq
+	redirectQueue := os.Getenv("REDIRECT_QUEUE")
+	err = rabbitmq.Publish(redirectQueue, mapUrlResponse)
+	if err != nil {
+		logger.Error("Cannot publish to rabbitmq", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
+		return c.Status(500).JSON(map[string]interface{}{
+			"error": "Internal server error",
+		})
+	}
 	logger.Info("Map response", zap.String("id", mapUrlRequest.Id), zap.Int("code", 200), zap.String("shortUrl", shortUrl))
 	return c.Status(200).JSON(mapUrlResponse)
 }

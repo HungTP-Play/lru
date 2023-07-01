@@ -99,6 +99,8 @@ func (r *RabbitMQ) Consume(queue string, callback func([]byte), numberOfWorker i
 		return err
 	}
 
+	forever := make(chan bool)
+
 	msgs, err := channel.Consume(queue, "", false, false, false, false, nil)
 	if err != nil {
 		return err
@@ -112,6 +114,8 @@ func (r *RabbitMQ) Consume(queue string, callback func([]byte), numberOfWorker i
 			}
 		}()
 	}
+
+	<-forever
 
 	return nil
 }
