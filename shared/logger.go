@@ -28,6 +28,14 @@ type Logger struct {
 	logger   *zap.Logger
 }
 
+// NewLogger returns a new logger instance
+//
+// Params:
+// - filePath: path to the log file
+// - maxAge: maximum number of days to retain old log files (in days)
+// - maxSize: maximum size in megabytes before log file gets rotated (in MB)
+// - level: log level
+// - appName: name of the application
 func NewLogger(filePath string, maxAge int, maxSize int, level string, appName string) *Logger {
 	return &Logger{
 		FilePath: filePath,
@@ -43,6 +51,11 @@ func unshift(fields []zap.Field, field zap.Field) []zap.Field {
 	return append([]zap.Field{field}, fields...)
 }
 
+// Init initializes the logger
+//
+// It creates a new zap logger instance with the following configuration:
+// - file syncer
+// - stdout syncer
 func (l *Logger) Init() {
 
 	// file syncer
@@ -59,18 +72,22 @@ func (l *Logger) Init() {
 	l.logger = zap.New(core)
 }
 
+// Log a message with the info level
 func (l *Logger) Info(msg string, fields ...zap.Field) {
 	l.logger.Info(msg, unshift(fields, zap.String("service", l.AppName))...)
 }
 
+// Log a message with the error level
 func (l *Logger) Error(msg string, fields ...zap.Field) {
 	l.logger.Error(msg, unshift(fields, zap.String("service", l.AppName))...)
 }
 
+// Log a message with the debug level
 func (l *Logger) Debug(msg string, fields ...zap.Field) {
 	l.logger.Debug(msg, unshift(fields, zap.String("service", l.AppName))...)
 }
 
+// Log a message with the warn level
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
 	l.logger.Warn(msg, unshift(fields, zap.String("service", l.AppName))...)
 }

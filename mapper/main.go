@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/HungTP-Play/lru/mapper/model"
 	"github.com/HungTP-Play/lru/mapper/repo"
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 )
 
 var mapRepo *repo.UrlMappingRepo
@@ -26,20 +26,28 @@ func init() {
 }
 
 func onGratefulShutDown() {
-	fmt.Println("Shutting down gracefully")
+	logger.Info("Shutting down...")
 	mapRepo.DB.Close()
 }
 
 func mapHandler(c *fiber.Ctx) error {
 	var mapUrlRequest shared.MapUrlRequest
+	body := c.Body()
 	err := c.BodyParser(&mapUrlRequest)
+	logger.Info("Map request", zap.String("id", mapUrlRequest.Id), zap.String("body", string(body)), zap.String("method", c.Method()), zap.String("path", c.Path()), zap.String("url", mapUrlRequest.Url))
 	if err != nil {
-		return c.Status(400).SendString("Format error")
+		logger.Error("Cannot parse body", zap.String("id", mapUrlRequest.Id), zap.Int("code", 400), zap.Error(err))
+		return c.Status(400).JSON(map[string]interface{}{
+			"error": "Cannot parse body",
+		})
 	}
 
 	shortUrl, err := mapRepo.Map(mapUrlRequest)
 	if err != nil {
-		return c.Status(500).SendString("Error")
+		logger.Error("Cannot map url", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
+		return c.Status(500).JSON(map[string]interface{}{
+			"error": "Internal server error",
+		})
 	}
 
 	mapUrlResponse := shared.MapUrlResponse{
@@ -48,12 +56,11 @@ func mapHandler(c *fiber.Ctx) error {
 		Id:        mapUrlRequest.Id,
 	}
 
+	logger.Info("Map response", zap.String("id", mapUrlRequest.Id), zap.Int("code", 200), zap.String("shortUrl", shortUrl))
 	return c.Status(200).JSON(mapUrlResponse)
 }
 
 func main() {
-	fmt.Printf("This is a main %v", "gateway")
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "1111"
