@@ -24,7 +24,7 @@ func init() {
 	logger.Info("Init done!!!")
 }
 
-func handleAnalytic(msg []byte) {
+func handleAnalytic(msg []byte) error {
 	var analytic shared.AnalyticMessage
 	innerLogger := shared.NewLogger("analytic.log", 3, 1024, "info", "analytic")
 	innerLogger.Init()
@@ -32,10 +32,12 @@ func handleAnalytic(msg []byte) {
 	err := json.Unmarshal(msg, &analytic)
 	if err != nil {
 		innerLogger.Error("Cannot unmarshal analytic message: %s", zap.Error(err))
-		return
+		return err
 	}
 
 	innerLogger.Info("Analytic message: %s", zap.String("id", analytic.Id), zap.String("url", analytic.Url), zap.String("shorten", analytic.Shorten), zap.String("type", analytic.Type))
+
+	return nil
 }
 
 func main() {
