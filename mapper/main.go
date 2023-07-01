@@ -63,14 +63,30 @@ func mapHandler(c *fiber.Ctx) error {
 	}
 
 	// Publish to rabbitmq
-	redirectQueue := os.Getenv("REDIRECT_QUEUE")
-	err = rabbitmq.Publish(redirectQueue, mapUrlResponse)
-	if err != nil {
-		logger.Error("Cannot publish to rabbitmq", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
-		return c.Status(500).JSON(map[string]interface{}{
-			"error": "Internal server error",
-		})
-	}
+	go func() {
+		redirectQueue := os.Getenv("REDIRECT_QUEUE")
+		err = rabbitmq.Publish(redirectQueue, mapUrlResponse)
+		if err != nil {
+			logger.Error("Cannot publish redirect", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
+		}
+	}()
+
+	go func() {
+		// Save to db
+		analyticQueue := os.Getenv("ANALYTIC_QUEUE")
+		analyticMessage := &shared.AnalyticMessage{
+			Id:        mapUrlRequest.Id,
+			Url:       mapUrlRequest.Url,
+			Shorten:   shortUrl,
+			Type:      "map",
+			Timestamp: time.Now().Unix(),
+		}
+		err = rabbitmq.Publish(analyticQueue, analyticMessage)
+		if err != nil {
+			logger.Error("Cannot publish analytic", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
+		}
+	}()
+
 	logger.Info("Map response", zap.String("id", mapUrlRequest.Id), zap.Int("code", 200), zap.String("shortUrl", shortUrl))
 	return c.Status(200).JSON(mapUrlResponse)
 }

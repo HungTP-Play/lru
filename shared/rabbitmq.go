@@ -17,8 +17,8 @@ type RabbitMQ struct {
 }
 
 func getRabbitConnectionString() string {
-	rabbitHost := os.Getenv("RABBIT_HOST")
-	rabbitPort := os.Getenv("RABBIT_PORT")
+	rabbitHost := os.Getenv("RABBITMQ_HOST")
+	rabbitPort := os.Getenv("RABBITMQ_PORT")
 
 	return fmt.Sprintf("amqp://guest:guest@%v:%v/", rabbitHost, rabbitPort)
 }
