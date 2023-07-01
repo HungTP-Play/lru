@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"time"
 
 	"github.com/HungTP-Play/lru/shared"
+	"go.uber.org/zap"
 )
 
 var logger *shared.Logger
@@ -23,7 +25,14 @@ func init() {
 }
 
 func handleAnalytic(msg []byte) {
-	logger.Info(string(msg))
+	var analytic shared.AnalyticMessage
+	err := json.Unmarshal(msg, &analytic)
+	if err != nil {
+		logger.Error("Cannot unmarshal analytic message: %s", zap.Error(err))
+		return
+	}
+
+	logger.Info("Analytic message: %s", zap.String("id", analytic.Id), zap.String("url", analytic.Url), zap.String("shorten", analytic.Shorten), zap.String("type", analytic.Type))
 }
 
 func main() {

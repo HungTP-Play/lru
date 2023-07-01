@@ -55,7 +55,6 @@ func (r *RabbitMQ) Publish(queue string, message interface{}) error {
 	if r.connection.IsClosed() {
 		r.Connect(0)
 	}
-	defer r.Close()
 
 	channel, err := r.connection.Channel()
 	if err != nil {
@@ -86,7 +85,6 @@ func (r *RabbitMQ) Consume(queue string, callback func([]byte), numberOfWorker i
 	if r.connection.IsClosed() {
 		r.Connect(0)
 	}
-	defer r.Close()
 
 	channel, err := r.connection.Channel()
 	if err != nil {

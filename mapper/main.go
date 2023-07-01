@@ -34,6 +34,7 @@ func init() {
 func onGratefulShutDown() {
 	logger.Info("Shutting down...")
 	mapRepo.DB.Close()
+	rabbitmq.Close()
 }
 
 func mapHandler(c *fiber.Ctx) error {
