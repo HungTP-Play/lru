@@ -48,6 +48,7 @@ func ResponseStatusCodeMiddleware(c *fiber.Ctx) error {
 		metrics.IncGauge(TwoXXStatusCode, c.Method(), c.Path(), strconv.Itoa(statusCode))
 	}
 	if statusCode >= 400 && statusCode < 500 {
+		logger.Info("ResponseStatusCodeMiddleware", zap.Int("code", statusCode))
 		metrics.IncGauge(FourXXStatusCode, c.Method(), c.Path(), strconv.Itoa(statusCode))
 	}
 	if statusCode >= 500 {

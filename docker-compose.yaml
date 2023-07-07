@@ -1,5 +1,10 @@
 version: '3.7'
 
+configs:
+
+  postgres_exporter_config:
+    file: ./queries.yaml
+
 services:
   redis:
     image: redis:7-alpine
@@ -7,13 +12,6 @@ services:
       - 6379:6379
     volumes:
       - ~/data/lru/redis:/data
-  redis-exporter:
-    image: oliver006/redis_exporter
-    command: -redis.addr redis://redis:6379
-    ports:
-    - 9121:9121
-    depends_on:
-      - redis
   rabbitmq:
     image: rabbitmq:alpine
     ports:
@@ -26,9 +24,11 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all -c max_connections=200
     volumes:
       - ~/data/lru/postgres:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgres.conf:/etc/postgresql/postgresql.conf
     ports:
       - 5432:5432
   frontend:
