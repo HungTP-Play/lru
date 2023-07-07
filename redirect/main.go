@@ -16,6 +16,11 @@ import (
 var logger *shared.Logger
 var rabbitmq *shared.RabbitMQ
 var redirectRepo *repo.RedirectUrlRepo
+var cacheClient *shared.CacheClient
+
+var (
+	defaultKeyCacheTime = 15 * time.Minute
+)
 
 func init() {
 
@@ -32,6 +37,10 @@ func init() {
 	rabbitmq = shared.NewRabbitMQ("")
 	rabbitmq.Connect(10 * time.Second)
 
+	// Init cache
+	cacheClient = shared.NewCacheClient(shared.RedisDefaultConfig())
+	cacheClient.Connect()
+
 	logger.Info("Init done!!!")
 }
 
@@ -39,6 +48,7 @@ func onGratefulShutDown() {
 	fmt.Println("Shutting down...")
 	redirectRepo.Close()
 	rabbitmq.Close()
+	cacheClient.Close()
 }
 
 func redirectHandler(c *fiber.Ctx) error {
@@ -53,20 +63,38 @@ func redirectHandler(c *fiber.Ctx) error {
 
 	logger.Info("Redirect request", zap.String("id", redirectRequest.Id), zap.String("method", c.Method()), zap.String("path", c.Path()), zap.String("shorten", redirectRequest.Url))
 
-	originalUrl, err := redirectRepo.GetRedirect(redirectRequest.Url)
-	if err != nil {
-		logger.Error("Cannot get redirect", zap.String("id", redirectRequest.Id), zap.Int("code", 500), zap.Error(err))
-		return c.Status(500).JSON(map[string]interface{}{
-			"error": "Internal server error",
-		})
+	// Check cache first => if not found => get from db
+	// This called the cache-aside pattern
+	var originalUrl string
+	var redirectResponse shared.RedirectResponse
+	originalUrl, err = cacheClient.Get(redirectRequest.Url)
+	if err == nil {
+		logger.Info("Cache hit", zap.String("key", redirectRequest.Url), zap.String("value", originalUrl))
+		redirectResponse = shared.RedirectResponse{
+			Url:         redirectRequest.Url,
+			Id:          redirectRequest.Id,
+			OriginalUrl: originalUrl,
+		}
+	} else {
+		logger.Info("Cache miss", zap.String("key", redirectRequest.Url))
+		logger.Error("Cannot get cache", zap.String("id", redirectRequest.Id), zap.String("key", redirectRequest.Url), zap.Error(err))
+
+		originalUrl, err = redirectRepo.GetRedirect(redirectRequest.Url)
+		if err != nil {
+			logger.Error("Cannot get redirect", zap.String("id", redirectRequest.Id), zap.Int("code", 500), zap.Error(err))
+			return c.Status(500).JSON(map[string]interface{}{
+				"error": "Internal server error",
+			})
+		}
+
+		redirectResponse = shared.RedirectResponse{
+			Url:         redirectRequest.Url,
+			Id:          redirectRequest.Id,
+			OriginalUrl: originalUrl,
+		}
 	}
 
-	redirectResponse := shared.RedirectResponse{
-		Url:         redirectRequest.Url,
-		Id:          redirectRequest.Id,
-		OriginalUrl: originalUrl,
-	}
-
+	// Send analytic message
 	go func() {
 		analyticMessage := shared.AnalyticMessage{
 			Id:        redirectRequest.Id,
@@ -101,6 +129,13 @@ func redirectQueueHandler(msg []byte) error {
 
 	innerLogger.Info("Receive add redirect message", zap.String("id", redirectMessage.Id), zap.String("url", redirectMessage.Url), zap.String("shorten", redirectMessage.Shorten))
 
+	// Add to cache, use shorten as key, original url as value
+	// This called the write-through cache pattern
+	err = cacheClient.Set(redirectMessage.Shorten, redirectMessage.Url, defaultKeyCacheTime)
+	if err != nil {
+		innerLogger.Error("Cannot set cache", zap.String("id", redirectMessage.Id), zap.String("key", redirectMessage.Shorten), zap.String("value", redirectMessage.Url), zap.Error(err))
+	}
+	innerLogger.Info("Set cache", zap.String("key", redirectMessage.Shorten), zap.String("value", redirectMessage.Url))
 	err = innerRepo.AddRedirect(redirectMessage)
 	if err != nil {
 		innerLogger.Error("Cannot add redirect", zap.String("id", redirectMessage.Id), zap.String("url", redirectMessage.Url), zap.String("shorten", redirectMessage.Shorten), zap.Error(err))
