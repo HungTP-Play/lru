@@ -7,6 +7,13 @@ services:
       - 6379:6379
     volumes:
       - ~/data/lru/redis:/data
+  redis-exporter:
+    image: oliver006/redis_exporter
+    command: -redis.addr redis://redis:6379
+    ports:
+    - 9121:9121
+    depends_on:
+      - redis
   rabbitmq:
     image: rabbitmq:alpine
     ports:
@@ -150,19 +157,19 @@ services:
       - ./analytic:/app
       - ./logs:/var/log
     command: ["go", "run", "main.go"]
-  # prometheus:
-  #   image: prom/prometheus
-  #   ports:
-  #     - 9090:9090
-  #   volumes:
-  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
-  #   command:
-  #     - '--config.file=/etc/prometheus/prometheus.yml'
-  #     - '--storage.tsdb.path=/prometheus'
-  #     - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-  #     - '--web.console.templates=/usr/share/prometheus/consoles'
-  #   expose:
-  #     - 9090
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    expose:
+      - 9090
   grafana:
     image: grafana/grafana
     ports:
@@ -204,7 +211,7 @@ services:
   #     - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
   #   command: --config=/etc/otel-collector-config.yaml
   #   depends_on:
-  #     - prometheus
+  #     - tempo
   # tempo:
   #   image: grafana/tempo:main
   #   ports:

@@ -4,22 +4,56 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/HungTP-Play/lru/gateway/dto"
 	"github.com/HungTP-Play/lru/gateway/util"
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
 var logger *shared.Logger
+var metrics *shared.Metrics
+var requestPerSecond *prometheus.CounterVec
+var TwoXXStatusCode *prometheus.GaugeVec
+var FourXXStatusCode *prometheus.GaugeVec
+var FiveXXStatusCode *prometheus.GaugeVec
 
 func init() {
 
 	logger = shared.NewLogger("gateway.log", 3, 1024, "info", "gateway")
 	logger.Init()
 
+	// Init metrics
+	metrics = shared.NewMetrics()
+	requestPerSecond = metrics.RegisterCounter("request_per_second", "Request per second", []string{"method", "path"})
+	TwoXXStatusCode = metrics.RegisterGauge("status_code_2xx", "2xx status code", []string{"method", "path", "code"})
+	FourXXStatusCode = metrics.RegisterGauge("status_code_4xx", "4xx status code", []string{"method", "path", "code"})
+	FiveXXStatusCode = metrics.RegisterGauge("status_code_5xx", "5xx status code", []string{"method", "path", "code"})
+
 	logger.Info("Init done!!!")
+}
+
+func RequestCounterMiddleware(c *fiber.Ctx) error {
+	metrics.IncCounter(requestPerSecond, c.Method(), c.Path())
+	return c.Next()
+}
+
+func ResponseStatusCodeMiddleware(c *fiber.Ctx) error {
+	c.Next()
+	statusCode := c.Response().StatusCode()
+	if statusCode >= 200 && statusCode < 300 {
+		metrics.IncGauge(TwoXXStatusCode, c.Method(), c.Path(), strconv.Itoa(statusCode))
+	}
+	if statusCode >= 400 && statusCode < 500 {
+		metrics.IncGauge(FourXXStatusCode, c.Method(), c.Path(), strconv.Itoa(statusCode))
+	}
+	if statusCode >= 500 {
+		metrics.IncGauge(FiveXXStatusCode, c.Method(), c.Path(), strconv.Itoa(statusCode))
+	}
+	return nil
 }
 
 func onGratefulShutDown() {
@@ -130,6 +164,13 @@ func redirectHandler(c *fiber.Ctx) error {
 	return c.Status(200).JSON(redirectResponse)
 
 }
+func metricsHandler(c *fiber.Ctx) error {
+	metrics, err := metrics.GetPrometheusMetrics()
+	if err != nil {
+		return c.Status(500).SendString("Failed to collect metrics")
+	}
+	return c.Type("text/plain").SendString(metrics)
+}
 
 func main() {
 	port := os.Getenv("PORT")
@@ -140,8 +181,12 @@ func main() {
 	gatewayService := shared.NewHttpService("gateway", port, false)
 	gatewayService.Init()
 
+	gatewayService.Use(RequestCounterMiddleware)
+	gatewayService.Use(ResponseStatusCodeMiddleware)
+
 	gatewayService.Routes("/shorten", shortenHandler, "POST")
 	gatewayService.Routes("/redirect", redirectHandler, "GET")
+	gatewayService.Routes("/metrics", metricsHandler, "GET")
 
 	gatewayService.Start(onGratefulShutDown)
 }
