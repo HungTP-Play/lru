@@ -25,6 +25,11 @@ func NewHttpService(name string, port string, prefork bool) *HttpService {
 	}
 }
 
+// Add middleware to the application stack
+func (h *HttpService) Use(args ...interface{}) {
+	h.App.Use(args...)
+}
+
 func (h *HttpService) Init() {
 	h.App = fiber.New(fiber.Config{
 		Prefork: h.Prefork,
