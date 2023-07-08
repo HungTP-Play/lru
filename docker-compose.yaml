@@ -203,23 +203,44 @@ services:
     command: -config.file=/etc/promtail/local-config.yaml
     depends_on:
       - loki
-  # otel-collector:
-  #   image: otel/opentelemetry-collector:0.80.0
-  #   ports:
-  #     - 4317:4317
-  #   volumes:
-  #     - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
-  #   command: --config=/etc/otel-collector-config.yaml
-  #   depends_on:
-  #     - tempo
-  # tempo:
-  #   image: grafana/tempo:main
-  #   ports:
-  #     - 3101:3100
-  #   command: -config.file=/etc/tempo/local-config.yaml
-  #   volumes:
-  #     - ./tempo:/etc/tempo
-  #     - ./tempo-config.yaml:/etc/tempo/local-config.yaml
-  #   depends_on:
-  #     - prometheus
+  tempo:
+    image: grafana/tempo:latest
+    user: root
+    command:
+      - "-config.file=/etc/tempo/tempo-config.yaml"                           # disables the requirement for the X-Scope-OrgID header
+      - "-server.http-listen-port=3200"
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+    volumes:
+      - ./tempo:/tmp/tempo
+      - ./tempo-config.yaml:/etc/tempo/tempo-config.yaml
+    depends_on:
+      - loki
+      - prometheus
+  agent:
+    user: root
+    image: grafana/agent:main
+    volumes:
+      - ./agent.yaml:/etc/agent-config/agent.yaml
+      - ./agent:/tmp/agent
+    entrypoint:
+      - /bin/grafana-agent
+      - -server.http.address=0.0.0.0:12345
+      - -config.file=/etc/agent-config/agent.yaml
+      - -metrics.wal-directory=/tmp/agent/wal
+      - -enable-features=integrations-next
+      - -config.expand-env
+      - -config.enable-read-api
+    environment:
+      HOSTNAME: agent
+      LOKI_HOST: loki:3100
+      TEMPO_HOST: tempo:4317
+      POSTGRES_HOST: postgres:5432
+      REDIS_HOST: redis:6379
+    ports:
+      - "12345:12345"
+    depends_on:
+      - loki
+      - tempo
 
