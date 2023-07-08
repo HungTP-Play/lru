@@ -172,6 +172,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-remote-write-receiver'
     expose:
       - 9090
   grafana:
@@ -213,9 +214,6 @@ services:
     command:
       - "-config.file=/etc/tempo/tempo-config.yaml"                           # disables the requirement for the X-Scope-OrgID header
       - "-server.http-listen-port=3200"
-    ports:
-      - "3200:3200"
-      - "4317:4317"
     volumes:
       - ./tempo:/tmp/tempo
       - ./tempo-config.yaml:/etc/tempo/tempo-config.yaml
@@ -237,7 +235,7 @@ services:
       - -config.enable-read-api
     environment:
       HOSTNAME: agent
-      LOKI_HOST: loki:3100
+      LOKI_HOST: loki:9095
       TEMPO_HOST: tempo:4317
       POSTGRES_HOST: postgres:5432
       REDIS_HOST: redis:6379

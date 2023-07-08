@@ -166,14 +166,17 @@ func redirectHandler(c *fiber.Ctx) error {
 
 	mapperUrl = fmt.Sprintf("%v/redirect", mapperUrl)
 	reqBody, _ := json.Marshal(redirectRequest)
+	url, _ := url.Parse(mapperUrl)
 	resp, err := httpClient.Do(&http.Request{
 		Method: "GET",
-		URL:    &url.URL{Path: mapperUrl},
+		URL:    url,
 		Header: map[string][]string{
 			"Content-Type": {"application/json"},
 		},
 		Body: io.NopCloser(bytes.NewReader(reqBody)),
 	})
+
+	_ = json.NewDecoder(resp.Body).Decode(&redirectResponse)
 
 	if err != nil {
 		logger.Error("CannotSendToRedirect", zap.String("id", requestId), zap.Int("code", 500), zap.Error(err))

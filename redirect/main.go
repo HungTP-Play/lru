@@ -10,6 +10,7 @@ import (
 	"github.com/HungTP-Play/lru/redirect/model"
 	"github.com/HungTP-Play/lru/redirect/repo"
 	"github.com/HungTP-Play/lru/shared"
+	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -24,6 +25,7 @@ var requestPerSecond *prometheus.CounterVec
 var TwoXXStatusCode *prometheus.GaugeVec
 var FourXXStatusCode *prometheus.GaugeVec
 var FiveXXStatusCode *prometheus.GaugeVec
+var tracer *shared.Tracer
 
 var (
 	defaultKeyCacheTime = 15 * time.Minute
@@ -54,6 +56,10 @@ func init() {
 	TwoXXStatusCode = metrics.RegisterGauge("status_code_2xx", "2xx status code", []string{"method", "path", "code"})
 	FourXXStatusCode = metrics.RegisterGauge("status_code_4xx", "4xx status code", []string{"method", "path", "code"})
 	FiveXXStatusCode = metrics.RegisterGauge("status_code_5xx", "5xx status code", []string{"method", "path", "code"})
+
+	// Init tracer
+	tracer = shared.NewTracer("redirect", "")
+	tracer.Init()
 
 	logger.Info("Init done!!!")
 }
@@ -97,6 +103,9 @@ func onGratefulShutDown() {
 }
 
 func redirectHandler(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", ctx)
+	defer redirectSpan.End()
 	var redirectRequest shared.RedirectRequest
 	err := c.BodyParser(&redirectRequest)
 	if err != nil {
@@ -112,7 +121,10 @@ func redirectHandler(c *fiber.Ctx) error {
 	// This called the cache-aside pattern
 	var originalUrl string
 	var redirectResponse shared.RedirectResponse
+	redirectCtx, cacheSpan := tracer.StartSpan("GetCache", redirectCtx)
 	originalUrl, err = cacheClient.Get(redirectRequest.Url)
+	cacheSpan.End()
+
 	if err == nil {
 		logger.Info("Cache hit", zap.String("key", redirectRequest.Url), zap.String("value", originalUrl))
 		redirectResponse = shared.RedirectResponse{
@@ -123,10 +135,12 @@ func redirectHandler(c *fiber.Ctx) error {
 	} else {
 		logger.Info("Cache miss", zap.String("key", redirectRequest.Url))
 		logger.Error("Cannot get cache", zap.String("id", redirectRequest.Id), zap.String("key", redirectRequest.Url), zap.Error(err))
+		_, dbSpan := tracer.StartSpan("GetRedirect", redirectCtx)
 
 		originalUrl, err = redirectRepo.GetRedirect(redirectRequest.Url)
 		if err != nil {
 			logger.Error("Cannot get redirect", zap.String("id", redirectRequest.Id), zap.Int("code", 500), zap.Error(err))
+			dbSpan.End()
 			return c.Status(500).JSON(map[string]interface{}{
 				"error": "Internal server error",
 			})
@@ -137,9 +151,11 @@ func redirectHandler(c *fiber.Ctx) error {
 			Id:          redirectRequest.Id,
 			OriginalUrl: originalUrl,
 		}
+		dbSpan.End()
 	}
 
 	// Send analytic message
+	_, analyticSpan := tracer.StartSpan("SendAnalytic", redirectCtx)
 	go func() {
 		analyticMessage := shared.AnalyticMessage{
 			Id:        redirectRequest.Id,
@@ -152,8 +168,10 @@ func redirectHandler(c *fiber.Ctx) error {
 		analyticQueue := os.Getenv("ANALYTIC_QUEUE")
 		err := rabbitmq.Publish(analyticQueue, analyticMessage)
 		if err != nil {
+			analyticSpan.End()
 			logger.Error("Cannot publish analytic message", zap.String("id", redirectRequest.Id), zap.String("url", originalUrl), zap.String("shorten", redirectRequest.Url), zap.Error(err))
 		}
+		analyticSpan.End()
 	}()
 
 	return c.Status(200).JSON(redirectResponse)
@@ -200,6 +218,10 @@ func main() {
 	redirectService := shared.NewHttpService("redirect", port, false)
 	redirectService.Init()
 
+	otelfiberOpts := []otelfiber.Option{
+		otelfiber.WithTracerProvider(tracer.Provider),
+	}
+	redirectService.Use(otelfiber.Middleware(otelfiberOpts...))
 	redirectService.Use(RequestPerSecondMiddleware)
 	redirectService.Use(ResponseStatusCodeMiddleware)
 
