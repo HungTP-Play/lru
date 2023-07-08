@@ -56,6 +56,9 @@ traces:
         otlp:
           protocols:
             grpc:
+              endpoint: 0.0.0.0:4317
+            http:
+              endpoint: 0.0.0.0:55681
       batch:
         send_batch_size: 100
         timeout: 10s

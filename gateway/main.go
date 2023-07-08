@@ -20,6 +20,7 @@ var requestPerSecond *prometheus.CounterVec
 var TwoXXStatusCode *prometheus.GaugeVec
 var FourXXStatusCode *prometheus.GaugeVec
 var FiveXXStatusCode *prometheus.GaugeVec
+var tracer *shared.Tracer
 
 func init() {
 
@@ -32,6 +33,10 @@ func init() {
 	TwoXXStatusCode = metrics.RegisterGauge("status_code_2xx", "2xx status code", []string{"method", "path", "code"})
 	FourXXStatusCode = metrics.RegisterGauge("status_code_4xx", "4xx status code", []string{"method", "path", "code"})
 	FiveXXStatusCode = metrics.RegisterGauge("status_code_5xx", "5xx status code", []string{"method", "path", "code"})
+
+	// Init tracer
+	tracer = shared.NewTracer("gateway", "")
+	tracer.Init()
 
 	logger.Info("Init done!!!")
 }
@@ -62,6 +67,9 @@ func onGratefulShutDown() {
 }
 
 func shortenHandler(c *fiber.Ctx) error {
+	shortenCtx, shortenSpan := tracer.StartSpan("ShortenHandler", tracer.Ctx)
+	defer shortenSpan.End()
+
 	requestID := util.GenUUID()
 	body := c.Body()
 	var shortenDto dto.ShortenRequestDto
@@ -92,6 +100,9 @@ func shortenHandler(c *fiber.Ctx) error {
 
 	var mapUrlResponse shared.MapUrlResponse
 	logger.Info("SendToMapper", zap.String("id", requestID), zap.String("url", mapUrlRequest.Url))
+
+	_, mapperCallSpan := tracer.StartSpan("SendToMapper", shortenCtx)
+	defer mapperCallSpan.End()
 	resp, err := httpClient.R().SetBody(mapUrlRequest).SetSuccessResult(&mapUrlResponse).Post(fmt.Sprintf("%v/map", mapperUrl))
 	if err != nil {
 		logger.Error("CannotSendToMapper", zap.String("id", requestID), zap.Int("code", 500), zap.Error(err))

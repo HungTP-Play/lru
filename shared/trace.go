@@ -2,14 +2,14 @@ package shared
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"os"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
@@ -25,14 +25,15 @@ type Tracer struct {
 }
 
 // NewExporter creates an exporter that just print the span data to stdout.
-func NewExporter(w io.Writer) (sdk.SpanExporter, error) {
-	return stdouttrace.New(
-		stdouttrace.WithWriter(w),
-		// Use human-readable output.
-		stdouttrace.WithPrettyPrint(),
-		// Do not print timestamps for the demo.
-		stdouttrace.WithoutTimestamps(),
+func NewExporter(collectorURL string, ctx context.Context) (sdk.SpanExporter, error) {
+	exporter, err := otlptrace.New(ctx,
+		otlptracegrpc.NewClient(
+			otlptracegrpc.WithEndpoint(collectorURL),
+			otlptracegrpc.WithInsecure(),
+		),
 	)
+
+	return exporter, err
 }
 
 // NewResource returns a resource describing this application.
@@ -51,9 +52,9 @@ func NewResource(serviceName string) *resource.Resource {
 }
 
 // New creates a new tracer provider instance. => where the traces are sent to
-func NewTracerProvider(serviceName string, collectorURL string) *sdk.TracerProvider {
+func NewTracerProvider(serviceName string, collectorURL string, ctx context.Context) *sdk.TracerProvider {
 	// Create the console exporter
-	exporter, err := NewExporter(os.Stdout)
+	exporter, err := NewExporter(collectorURL, ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -76,11 +77,12 @@ func NewTracer(serviceName string, collectorURL string) *Tracer {
 		collectorURL = GetDefaultCollectorURL()
 	}
 
-	provider := NewTracerProvider(serviceName, collectorURL)
+	context := context.Background()
+	provider := NewTracerProvider(serviceName, collectorURL, context)
 	return &Tracer{
 		ServiceName:  serviceName,
 		CollectorURL: collectorURL,
-		Ctx:          context.Background(),
+		Ctx:          context,
 		Provider:     provider,
 	}
 }
