@@ -55,6 +55,7 @@ services:
       - MAPPER_PORT=1111
       - REDIRECT_HOST=redirect
       - REDIRECT_PORT=2222
+      - OTEL_ENDPOINT=agent:12345
     depends_on:
       - redis
       - mapper
