@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 
@@ -103,7 +107,9 @@ func shortenHandler(c *fiber.Ctx) error {
 
 	_, mapperCallSpan := tracer.StartSpan("SendToMapper", shortenCtx)
 	defer mapperCallSpan.End()
-	resp, err := httpClient.R().SetBody(mapUrlRequest).SetSuccessResult(&mapUrlResponse).Post(fmt.Sprintf("%v/map", mapperUrl))
+	mapperUrl = fmt.Sprintf("%v/map", mapperUrl)
+	reqBody, _ := json.Marshal(mapUrlRequest)
+	resp, err := httpClient.Post(mapperUrl, "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
 		logger.Error("CannotSendToMapper", zap.String("id", requestID), zap.Int("code", 500), zap.Error(err))
 		return c.Status(500).JSON(map[string]interface{}{
@@ -111,16 +117,18 @@ func shortenHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	if resp.GetStatusCode() >= 500 {
-		logger.Error("MapperResultError__ServerError", zap.String("id", requestID), zap.Int("code", resp.GetStatusCode()), zap.Error(err))
-		return c.Status(resp.GetStatusCode()).JSON(map[string]interface{}{
+	json.NewDecoder(resp.Body).Decode(&mapUrlResponse)
+
+	if resp.StatusCode >= 500 {
+		logger.Error("MapperResultError__ServerError", zap.String("id", requestID), zap.Int("code", resp.StatusCode), zap.Error(err))
+		return c.Status(resp.StatusCode).JSON(map[string]interface{}{
 			"error": "Internal server error",
 		})
 	}
 
-	if resp.GetStatusCode() >= 400 {
-		logger.Error("MapperResultError__ClientError", zap.String("id", requestID), zap.Int("code", resp.GetStatusCode()), zap.Error(err))
-		return c.Status(resp.GetStatusCode()).JSON(map[string]interface{}{
+	if resp.StatusCode >= 400 {
+		logger.Error("MapperResultError__ClientError", zap.String("id", requestID), zap.Int("code", resp.StatusCode), zap.Error(err))
+		return c.Status(resp.StatusCode).JSON(map[string]interface{}{
 			"error": "Bad request",
 		})
 	}
@@ -155,7 +163,18 @@ func redirectHandler(c *fiber.Ctx) error {
 
 	_, redirectCallSpan := tracer.StartSpan("SendToRedirect", redirectCtx)
 	defer redirectCallSpan.End()
-	resp, err := httpClient.R().SetBody(redirectRequest).SetSuccessResult(&redirectResponse).Get(fmt.Sprintf("%v/redirect", mapperUrl))
+
+	mapperUrl = fmt.Sprintf("%v/redirect", mapperUrl)
+	reqBody, _ := json.Marshal(redirectRequest)
+	resp, err := httpClient.Do(&http.Request{
+		Method: "GET",
+		URL:    &url.URL{Path: mapperUrl},
+		Header: map[string][]string{
+			"Content-Type": {"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewReader(reqBody)),
+	})
+
 	if err != nil {
 		logger.Error("CannotSendToRedirect", zap.String("id", requestId), zap.Int("code", 500), zap.Error(err))
 		return c.Status(500).JSON(map[string]interface{}{
@@ -163,16 +182,16 @@ func redirectHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	if resp.GetStatusCode() >= 500 {
-		logger.Error("RedirectResultError__ServerError", zap.String("id", requestId), zap.Int("code", resp.GetStatusCode()), zap.Error(err))
-		return c.Status(resp.GetStatusCode()).JSON(map[string]interface{}{
+	if resp.StatusCode >= 500 {
+		logger.Error("RedirectResultError__ServerError", zap.String("id", requestId), zap.Int("code", resp.StatusCode), zap.Error(err))
+		return c.Status(resp.StatusCode).JSON(map[string]interface{}{
 			"error": "Internal server error",
 		})
 	}
 
-	if resp.GetStatusCode() >= 400 {
-		logger.Error("RedirectResultError__ClientError", zap.String("id", requestId), zap.Int("code", resp.GetStatusCode()), zap.Error(err))
-		return c.Status(resp.GetStatusCode()).JSON(map[string]interface{}{
+	if resp.StatusCode >= 400 {
+		logger.Error("RedirectResultError__ClientError", zap.String("id", requestId), zap.Int("code", resp.StatusCode), zap.Error(err))
+		return c.Status(resp.StatusCode).JSON(map[string]interface{}{
 			"error": "Bad request",
 		})
 	}

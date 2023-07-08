@@ -1,11 +1,15 @@
 package util
 
 import (
+	"net/http"
 	"time"
 
-	"github.com/imroc/req/v3"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-func GetHttpClient() *req.Client {
-	return req.SetTimeout(5*time.Second).SetUserAgent("Golang").SetCommonHeader("Content-Type", "application/json")
+func GetHttpClient() *http.Client {
+	return &http.Client{
+		Timeout:   time.Second * 30,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
 }

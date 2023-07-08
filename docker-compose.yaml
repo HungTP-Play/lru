@@ -87,6 +87,7 @@ services:
       - RABBITMQ_QUEUE=map
       - REDIRECT_QUEUE=redirect
       - ANALYTIC_QUEUE=analytic
+      - OTEL_ENDPOINT=agent:4317
     depends_on:
       - postgres
       - redis
@@ -118,6 +119,7 @@ services:
       - POSTGRES_DB=lru_redirect
       - REDIRECT_QUEUE=redirect
       - ANALYTIC_QUEUE=analytic
+      - OTEL_ENDPOINT=agent:4317
     depends_on:
       - rabbitmq
       - redis
@@ -148,6 +150,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=lru_analytic
       - ANALYTIC_QUEUE=analytic
+      - OTEL_ENDPOINT=agent:4317
     depends_on:
       - rabbitmq
       - redis

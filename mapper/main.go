@@ -8,6 +8,7 @@ import (
 	"github.com/HungTP-Play/lru/mapper/model"
 	"github.com/HungTP-Play/lru/mapper/repo"
 	"github.com/HungTP-Play/lru/shared"
+	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -21,6 +22,8 @@ var requestPerSecond *prometheus.CounterVec
 var TwoXXStatusCode *prometheus.GaugeVec
 var FourXXStatusCode *prometheus.GaugeVec
 var FiveXXStatusCode *prometheus.GaugeVec
+
+var tracer *shared.Tracer
 
 func init() {
 	mapRepo = repo.NewUrlMappingRepo("")
@@ -41,6 +44,10 @@ func init() {
 	TwoXXStatusCode = metrics.RegisterGauge("status_code_2xx", "2xx status code", []string{"method", "path", "code"})
 	FourXXStatusCode = metrics.RegisterGauge("status_code_4xx", "4xx status code", []string{"method", "path", "code"})
 	FiveXXStatusCode = metrics.RegisterGauge("status_code_5xx", "5xx status code", []string{"method", "path", "code"})
+
+	// Init tracer
+	tracer = shared.NewTracer("mapper", "")
+	tracer.Init()
 
 	logger.Info("Init done!!!")
 }
@@ -85,6 +92,10 @@ func metricsHandler(c *fiber.Ctx) error {
 
 func mapHandler(c *fiber.Ctx) error {
 	var mapUrlRequest shared.MapUrlRequest
+	ctx := c.UserContext()
+	_, mapSpan := tracer.StartSpan("Map", ctx)
+	defer mapSpan.End()
+
 	body := c.Body()
 	err := c.BodyParser(&mapUrlRequest)
 	logger.Info("Map request", zap.String("id", mapUrlRequest.Id), zap.String("body", string(body)), zap.String("method", c.Method()), zap.String("path", c.Path()), zap.String("url", mapUrlRequest.Url))
@@ -95,13 +106,16 @@ func mapHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	ctx, mapUrlSpan := tracer.StartSpan("StoreDB", ctx)
 	shortUrl, err := mapRepo.Map(mapUrlRequest)
 	if err != nil {
 		logger.Error("Cannot map url", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
+		mapSpan.End()
 		return c.Status(500).JSON(map[string]interface{}{
 			"error": "Internal server error",
 		})
 	}
+	mapUrlSpan.End()
 
 	mapUrlResponse := shared.MapUrlResponse{
 		Url:       mapUrlRequest.Url,
@@ -109,7 +123,7 @@ func mapHandler(c *fiber.Ctx) error {
 		Id:        mapUrlRequest.Id,
 	}
 
-	// Publish to rabbitmq
+	_, publishRedirectSpan := tracer.StartSpan("PublishRedirect", ctx)
 	go func() {
 		redirectQueue := os.Getenv("REDIRECT_QUEUE")
 		redirectMessage := &shared.RedirectMessage{
@@ -119,13 +133,16 @@ func mapHandler(c *fiber.Ctx) error {
 		}
 		err = rabbitmq.Publish(redirectQueue, redirectMessage)
 		if err != nil {
+			publishRedirectSpan.End()
 			logger.Error("Cannot publish redirect", zap.String("id", redirectMessage.Id), zap.Int("code", 500), zap.Error(err))
 		}
+		publishRedirectSpan.End()
 		logger.Info("Publish redirect", zap.String("id", redirectMessage.Id), zap.String("shortUrl", shortUrl))
 	}()
 
+	// Publish to Analytic
+	_, publishAnalyticSpan := tracer.StartSpan("PublishAnalytic", ctx)
 	go func() {
-		// Save to db
 		analyticQueue := os.Getenv("ANALYTIC_QUEUE")
 		analyticMessage := &shared.AnalyticMessage{
 			Id:        mapUrlRequest.Id,
@@ -136,8 +153,10 @@ func mapHandler(c *fiber.Ctx) error {
 		}
 		err = rabbitmq.Publish(analyticQueue, analyticMessage)
 		if err != nil {
+			publishAnalyticSpan.End()
 			logger.Error("Cannot publish analytic", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
 		}
+		publishAnalyticSpan.End()
 		logger.Info("Publish analytic", zap.String("id", mapUrlRequest.Id), zap.String("shortUrl", shortUrl))
 	}()
 
@@ -154,6 +173,11 @@ func main() {
 	mapperService := shared.NewHttpService("mapper", port, false)
 	mapperService.Init()
 
+	otelFiberOpts := []otelfiber.Option{
+		otelfiber.WithTracerProvider(tracer.Provider),
+	}
+
+	mapperService.Use(otelfiber.Middleware(otelFiberOpts...))
 	mapperService.Use(RequestPerSecondMiddleware)
 	mapperService.Use(ResponseStatusCodeMiddleware)
 
