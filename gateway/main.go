@@ -130,6 +130,8 @@ func shortenHandler(c *fiber.Ctx) error {
 }
 
 func redirectHandler(c *fiber.Ctx) error {
+	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", tracer.Ctx)
+	defer redirectSpan.End()
 	var body map[string]string
 	requestId := util.GenUUID()
 	err := c.BodyParser(&body)
@@ -150,6 +152,9 @@ func redirectHandler(c *fiber.Ctx) error {
 
 	var redirectResponse shared.RedirectResponse
 	logger.Info("SendToRedirect", zap.String("id", requestId), zap.String("url", redirectRequest.Url))
+
+	_, redirectCallSpan := tracer.StartSpan("SendToRedirect", redirectCtx)
+	defer redirectCallSpan.End()
 	resp, err := httpClient.R().SetBody(redirectRequest).SetSuccessResult(&redirectResponse).Get(fmt.Sprintf("%v/redirect", mapperUrl))
 	if err != nil {
 		logger.Error("CannotSendToRedirect", zap.String("id", requestId), zap.Int("code", 500), zap.Error(err))

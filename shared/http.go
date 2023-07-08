@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -34,6 +35,9 @@ func (h *HttpService) Init() {
 	h.App = fiber.New(fiber.Config{
 		Prefork: h.Prefork,
 	})
+
+	// Use tracer middleware
+	h.App.Use(otelfiber.Middleware())
 }
 
 func (h *HttpService) UseMiddleware(args ...interface{}) {
