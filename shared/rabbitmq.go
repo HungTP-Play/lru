@@ -8,6 +8,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 type RabbitMQ struct {
@@ -119,4 +120,37 @@ func (r *RabbitMQ) Consume(queue string, callback func([]byte) error, numberOfWo
 	<-forever
 
 	return nil
+}
+
+type AmqpHeadersCarrier amqp.Table
+
+func (c AmqpHeadersCarrier) Get(key string) string {
+	if v, ok := c[key]; ok {
+		if value, ok := v.(string); ok {
+			return value
+		}
+	}
+	return ""
+}
+
+func (c AmqpHeadersCarrier) Set(key string, value string) {
+	c[key] = value
+}
+
+func (c AmqpHeadersCarrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for k := range c {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func InjectTraceHeader(ctx context.Context) amqp.Table {
+	// Inject the parent span context into the headers
+	headers := amqp.Table{}
+	carrier := AmqpHeadersCarrier(headers)
+	propagator := propagation.TraceContext{}
+	propagator.Inject(ctx, carrier)
+
+	return headers
 }

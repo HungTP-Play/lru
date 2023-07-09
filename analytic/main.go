@@ -6,9 +6,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/HungTP-Play/lru/analytic/model"
+	"github.com/HungTP-Play/lru/analytic/repo"
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -16,11 +19,17 @@ var logger *shared.Logger
 var rabbitmq *shared.RabbitMQ
 var metrics *shared.Metrics
 var requestPerSecond *prometheus.CounterVec
+var tracer *shared.Tracer
+var analyticRepo *repo.AnalyticRepo
 
 func init() {
 	// Init logger
 	logger = shared.NewLogger("analytic.log", 3, 1024, "info", "analytic")
 	logger.Init()
+
+	// Init analytic repo
+	analyticRepo = repo.NewAnalyticRepo("")
+	analyticRepo.DB.Migrate(&model.AnalyticRecord{})
 
 	// Init rabbitmq
 	rabbitmq = shared.NewRabbitMQ("")
@@ -30,19 +39,45 @@ func init() {
 	metrics = shared.NewMetrics()
 	requestPerSecond = metrics.RegisterCounter("request_per_second", "Request per second", []string{"method", "path"})
 
+	// Init tracer
+	tracer = shared.NewTracer("analytic", "")
+	tracer.Init()
 	logger.Info("Init done!!!")
 }
 
 func handleAnalytic(msg []byte) error {
+	ctx, span := tracer.StartSpan("handleAnalytic", tracer.Ctx, trace.WithSpanKind(trace.SpanKindServer))
+	defer span.End()
 	metrics.IncCounter(requestPerSecond, "QUEUE", "analytic")
 	var analytic shared.AnalyticMessage
 	innerLogger := shared.NewLogger("analytic.log", 3, 1024, "info", "analytic")
 	innerLogger.Init()
 
+	innerRepo := repo.NewAnalyticRepo("")
+	defer innerRepo.DB.Close()
+
 	err := json.Unmarshal(msg, &analytic)
 	if err != nil {
 		innerLogger.Error("Cannot unmarshal analytic message: %s", zap.Error(err))
 		return err
+	}
+
+	_, updateDBSpan := tracer.StartSpan("updateDB", ctx, trace.WithSpanKind(trace.SpanKindInternal))
+	if analytic.Type == "map" {
+		// Create new record
+		analyticRecord := model.AnalyticRecord{
+			ShortUrl:      analytic.Shorten,
+			OriginalUrl:   analytic.Url,
+			RedirectCount: 0,
+		}
+		innerRepo.DB.Create(&analyticRecord)
+		updateDBSpan.End()
+	}
+
+	if analytic.Type == "redirect" {
+		// Increase redirect count
+		innerRepo.IncAccessCount(analytic.Shorten)
+		updateDBSpan.End()
 	}
 
 	innerLogger.Info("Analytic message: %s", zap.String("id", analytic.Id), zap.String("url", analytic.Url), zap.String("shorten", analytic.Shorten), zap.String("type", analytic.Type))
@@ -60,6 +95,7 @@ func metricsHandler(c *fiber.Ctx) error {
 
 func onGratefulShutDown() {
 	fmt.Println("Shutting down...")
+	analyticRepo.Close()
 }
 
 func main() {
