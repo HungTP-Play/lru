@@ -3,9 +3,11 @@ package shared
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 type HttpService struct {
@@ -84,4 +86,26 @@ func (h *HttpService) Start(onGratefulShutDown func()) error {
 
 	onGratefulShutDown()
 	return nil
+}
+
+func ParentContextMiddleware(c *fiber.Ctx) error {
+	// Extract the parent span context from the HTTP headers
+	propagator := propagation.TraceContext{}
+
+	headers := c.GetReqHeaders()
+	var httpHeaders http.Header = make(http.Header)
+	for k, v := range headers {
+		httpHeaders.Set(k, v)
+	}
+	// Extract the parent context from the HTTP headers
+	parentCtx := propagator.Extract(context.Background(), propagation.HeaderCarrier(httpHeaders))
+
+	// Store the parent context in Fiber's context storage
+	c.Locals("parentCtx", parentCtx)
+
+	return c.Next()
+}
+
+func GetParentContext(c *fiber.Ctx) context.Context {
+	return c.Locals("parentCtx").(context.Context)
 }

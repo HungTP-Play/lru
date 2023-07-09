@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
@@ -102,4 +103,9 @@ func (t *Tracer) EndSpan(span trace.Span) {
 
 func GetTraceHttpClient() *http.Client {
 	return &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+}
+
+func InjectPropagationHeader(ctx context.Context, req *http.Request) {
+	propagator := propagation.TraceContext{}
+	propagator.Inject(ctx, propagation.HeaderCarrier(req.Header))
 }
