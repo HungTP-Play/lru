@@ -145,7 +145,7 @@ func (c AmqpHeadersCarrier) Keys() []string {
 	return keys
 }
 
-func InjectTraceHeader(ctx context.Context) amqp.Table {
+func InjectAmqpTraceHeader(ctx context.Context) amqp.Table {
 	// Inject the parent span context into the headers
 	headers := amqp.Table{}
 	carrier := AmqpHeadersCarrier(headers)
@@ -153,4 +153,11 @@ func InjectTraceHeader(ctx context.Context) amqp.Table {
 	propagator.Inject(ctx, carrier)
 
 	return headers
+}
+
+func ExtractTraceHeader(headers amqp.Table) context.Context {
+	// Extract the parent span context from the headers
+	carrier := AmqpHeadersCarrier(headers)
+	propagator := propagation.TraceContext{}
+	return propagator.Extract(context.Background(), carrier)
 }
