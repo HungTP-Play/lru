@@ -8,7 +8,6 @@ import (
 	"github.com/HungTP-Play/lru/mapper/model"
 	"github.com/HungTP-Play/lru/mapper/repo"
 	"github.com/HungTP-Play/lru/shared"
-	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -92,7 +91,7 @@ func metricsHandler(c *fiber.Ctx) error {
 
 func mapHandler(c *fiber.Ctx) error {
 	var mapUrlRequest shared.MapUrlRequest
-	ctx := c.UserContext()
+	ctx := shared.GetParentContext(c)
 	_, mapSpan := tracer.StartSpan("Map", ctx)
 	defer mapSpan.End()
 
@@ -173,11 +172,7 @@ func main() {
 	mapperService := shared.NewHttpService("mapper", port, false)
 	mapperService.Init()
 
-	otelFiberOpts := []otelfiber.Option{
-		otelfiber.WithTracerProvider(tracer.Provider),
-	}
-
-	mapperService.Use(otelfiber.Middleware(otelFiberOpts...))
+	mapperService.Use(shared.ParentContextMiddleware)
 	mapperService.Use(RequestPerSecondMiddleware)
 	mapperService.Use(ResponseStatusCodeMiddleware)
 

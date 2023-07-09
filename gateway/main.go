@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -105,11 +104,15 @@ func shortenHandler(c *fiber.Ctx) error {
 	var mapUrlResponse shared.MapUrlResponse
 	logger.Info("SendToMapper", zap.String("id", requestID), zap.String("url", mapUrlRequest.Url))
 
-	_, mapperCallSpan := tracer.StartSpan("SendToMapper", shortenCtx)
+	mapperCtx, mapperCallSpan := tracer.StartSpan("SendToMapper", shortenCtx)
 	defer mapperCallSpan.End()
 	mapperUrl = fmt.Sprintf("%v/map", mapperUrl)
 	reqBody, _ := json.Marshal(mapUrlRequest)
-	resp, err := httpClient.Post(mapperUrl, "application/json", bytes.NewBuffer(reqBody))
+
+	req, _ := http.NewRequest("POST", mapperUrl, bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	shared.InjectPropagationHeader(mapperCtx, req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		logger.Error("CannotSendToMapper", zap.String("id", requestID), zap.Int("code", 500), zap.Error(err))
 		return c.Status(500).JSON(map[string]interface{}{
@@ -161,20 +164,16 @@ func redirectHandler(c *fiber.Ctx) error {
 	var redirectResponse shared.RedirectResponse
 	logger.Info("SendToRedirect", zap.String("id", requestId), zap.String("url", redirectRequest.Url))
 
-	_, redirectCallSpan := tracer.StartSpan("SendToRedirect", redirectCtx)
+	redirectCtx, redirectCallSpan := tracer.StartSpan("SendToRedirect", redirectCtx)
 	defer redirectCallSpan.End()
 
 	mapperUrl = fmt.Sprintf("%v/redirect", mapperUrl)
 	reqBody, _ := json.Marshal(redirectRequest)
 	url, _ := url.Parse(mapperUrl)
-	resp, err := httpClient.Do(&http.Request{
-		Method: "GET",
-		URL:    url,
-		Header: map[string][]string{
-			"Content-Type": {"application/json"},
-		},
-		Body: io.NopCloser(bytes.NewReader(reqBody)),
-	})
+	req, _ := http.NewRequest("GET", url.String(), bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	shared.InjectPropagationHeader(redirectCtx, req)
+	resp, err := httpClient.Do(req)
 
 	_ = json.NewDecoder(resp.Body).Decode(&redirectResponse)
 

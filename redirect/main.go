@@ -10,7 +10,6 @@ import (
 	"github.com/HungTP-Play/lru/redirect/model"
 	"github.com/HungTP-Play/lru/redirect/repo"
 	"github.com/HungTP-Play/lru/shared"
-	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -103,7 +102,7 @@ func onGratefulShutDown() {
 }
 
 func redirectHandler(c *fiber.Ctx) error {
-	ctx := c.UserContext()
+	ctx := shared.GetParentContext(c)
 	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", ctx)
 	defer redirectSpan.End()
 	var redirectRequest shared.RedirectRequest
@@ -218,10 +217,7 @@ func main() {
 	redirectService := shared.NewHttpService("redirect", port, false)
 	redirectService.Init()
 
-	otelfiberOpts := []otelfiber.Option{
-		otelfiber.WithTracerProvider(tracer.Provider),
-	}
-	redirectService.Use(otelfiber.Middleware(otelfiberOpts...))
+	redirectService.Use(shared.ParentContextMiddleware)
 	redirectService.Use(RequestPerSecondMiddleware)
 	redirectService.Use(ResponseStatusCodeMiddleware)
 

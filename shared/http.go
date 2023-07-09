@@ -28,8 +28,14 @@ func NewHttpService(name string, port string, prefork bool) *HttpService {
 }
 
 // Add middleware to the application stack
-func (h *HttpService) Use(args ...interface{}) {
-	h.App.Use(args...)
+func (h *HttpService) Use(middleware interface{}, paths ...string) {
+	if len(paths) == 0 {
+		h.App.Use(middleware)
+	} else {
+		for _, path := range paths {
+			h.App.Use(path, middleware)
+		}
+	}
 }
 
 func (h *HttpService) Init() {
