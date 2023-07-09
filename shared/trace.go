@@ -93,8 +93,8 @@ func (t *Tracer) Init() {
 	t.tracer = otel.Tracer(t.ServiceName)
 }
 
-func (t *Tracer) StartSpan(name string, ctx context.Context) (context.Context, trace.Span) {
-	return t.tracer.Start(ctx, name)
+func (t *Tracer) StartSpan(name string, ctx context.Context, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	return t.tracer.Start(ctx, name, opts...)
 }
 
 func (t *Tracer) EndSpan(span trace.Span) {
