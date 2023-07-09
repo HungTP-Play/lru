@@ -33,6 +33,18 @@ The Grafana dashboard is available at:
 http://localhost:3001
 ```
 
+#### Dashboard
+
+Go to `Dashboards` -> `Metrics`
+
+#### Logs
+
+Go to `Explore`, Select datasource `Loki`, and query `{jobs="log"}`
+
+#### Trace
+
+Go to `Explore`, Select datasource `Tempo`, select `Search` and run query.
+
 ### Send request via cRUL
 
 ```bash
