@@ -60,34 +60,5 @@ curl  -X GET \
 ## Crate fake traffic
 
 ```bash
-docker compose up -d
-```
-
-The wait about 10s , un-comment the following line in `docker-compose.yml`:
-
-```yaml
-  # k6-shorten:
-  #   image: grafana/k6
-  #   volumes:
-  #     - ./k6:/scripts
-  #   command:
-  #     - 'run'
-  #     - '/scripts/shorten.js'
-  #   depends_on:
-  #     - gateway
-  # k6-redirect:
-  #   image: grafana/k6
-  #   volumes:
-  #     - ./k6:/scripts
-  #   command:
-  #     - 'run'
-  #     - '/scripts/redirect.js'
-  #   depends_on:
-  #     - gateway
-```
-
-Then run:
-
-```bash
-docker compose up -d
+docker compose up
 ```
