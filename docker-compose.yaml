@@ -31,17 +31,6 @@ services:
       - ./postgres.conf:/etc/postgresql/postgresql.conf
     ports:
       - 5432:5432
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - 3000:3000
-    volumes:
-      - ./frontend:/app
-    environment:
-      - API_URL=http://localhost:3333
-    command: ["npm", "run", "start"]
   gateway:
     image: lru-gateway:local
     build:
@@ -244,4 +233,23 @@ services:
     depends_on:
       - loki
       - tempo
-
+  k6-shorten:
+    image: grafana/k6
+    volumes:
+      - ./k6:/scripts
+    command:
+      - 'run'
+      - '/scripts/shorten.js'
+    depends_on:
+      - gateway
+    restart: unless-stopped
+  k6-redirect:
+    image: grafana/k6
+    volumes:
+      - ./k6:/scripts
+    command:
+      - 'run'
+      - '/scripts/redirect.js'
+    restart: unless-stopped
+    depends_on:
+      - gateway

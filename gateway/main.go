@@ -14,6 +14,7 @@ import (
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -105,16 +106,18 @@ func shortenHandler(c *fiber.Ctx) error {
 	var mapUrlResponse shared.MapUrlResponse
 	logger.Info("SendToMapper", zap.String("id", requestID), zap.String("url", mapUrlRequest.Url))
 
-	mapperCtx, mapperCallSpan := tracer.StartSpan("SendToMapper", shortenCtx, trace.WithSpanKind(trace.SpanKindClient))
+	ctx, mapperCallSpan := tracer.StartSpan("SendToMapper", shortenCtx, trace.WithSpanKind(trace.SpanKindClient))
 	defer mapperCallSpan.End()
 	mapperUrl = fmt.Sprintf("%v/map", mapperUrl)
 	reqBody, _ := json.Marshal(mapUrlRequest)
 
 	req, _ := http.NewRequest("POST", mapperUrl, bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
-	shared.InjectPropagationHeader(mapperCtx, req)
+	shared.InjectPropagationHeader(ctx, req)
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		mapperCallSpan.RecordError(err)
+		mapperCallSpan.SetStatus(codes.Error, "Cannot send to mapper")
 		logger.Error("CannotSendToMapper", zap.String("id", requestID), zap.Int("code", 500), zap.Error(err))
 		return c.Status(500).JSON(map[string]interface{}{
 			"error": "Internal server error",
@@ -124,6 +127,8 @@ func shortenHandler(c *fiber.Ctx) error {
 	json.NewDecoder(resp.Body).Decode(&mapUrlResponse)
 
 	if resp.StatusCode >= 500 {
+		mapperCallSpan.RecordError(err)
+		mapperCallSpan.SetStatus(codes.Error, "Internal server error")
 		logger.Error("MapperResultError__ServerError", zap.String("id", requestID), zap.Int("code", resp.StatusCode), zap.Error(err))
 		return c.Status(resp.StatusCode).JSON(map[string]interface{}{
 			"error": "Internal server error",
@@ -131,6 +136,7 @@ func shortenHandler(c *fiber.Ctx) error {
 	}
 
 	if resp.StatusCode >= 400 {
+		mapperCallSpan.RecordError(err)
 		logger.Error("MapperResultError__ClientError", zap.String("id", requestID), zap.Int("code", resp.StatusCode), zap.Error(err))
 		return c.Status(resp.StatusCode).JSON(map[string]interface{}{
 			"error": "Bad request",
@@ -179,6 +185,8 @@ func redirectHandler(c *fiber.Ctx) error {
 	_ = json.NewDecoder(resp.Body).Decode(&redirectResponse)
 
 	if err != nil {
+		redirectSpan.RecordError(err)
+		redirectSpan.SetStatus(codes.Error, "Cannot send to redirect")
 		logger.Error("CannotSendToRedirect", zap.String("id", requestId), zap.Int("code", 500), zap.Error(err))
 		return c.Status(500).JSON(map[string]interface{}{
 			"error": "Internal server error",
@@ -186,6 +194,8 @@ func redirectHandler(c *fiber.Ctx) error {
 	}
 
 	if resp.StatusCode >= 500 {
+		redirectCallSpan.RecordError(err)
+		redirectCallSpan.SetStatus(codes.Error, "Internal server error")
 		logger.Error("RedirectResultError__ServerError", zap.String("id", requestId), zap.Int("code", resp.StatusCode), zap.Error(err))
 		return c.Status(resp.StatusCode).JSON(map[string]interface{}{
 			"error": "Internal server error",
@@ -193,6 +203,8 @@ func redirectHandler(c *fiber.Ctx) error {
 	}
 
 	if resp.StatusCode >= 400 {
+		redirectCallSpan.RecordError(err)
+		redirectCallSpan.SetStatus(codes.Error, "Bad request")
 		logger.Error("RedirectResultError__ClientError", zap.String("id", requestId), zap.Int("code", resp.StatusCode), zap.Error(err))
 		return c.Status(resp.StatusCode).JSON(map[string]interface{}{
 			"error": "Bad request",

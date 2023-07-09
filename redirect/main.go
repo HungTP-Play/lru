@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -127,6 +128,7 @@ func redirectHandler(c *fiber.Ctx) error {
 	cacheSpan.End()
 
 	if err == nil {
+		cacheSpan.RecordError(err)
 		logger.Info("Cache hit", zap.String("key", redirectRequest.Url), zap.String("value", originalUrl))
 		redirectResponse = shared.RedirectResponse{
 			Url:         redirectRequest.Url,
@@ -140,6 +142,7 @@ func redirectHandler(c *fiber.Ctx) error {
 
 		originalUrl, err = redirectRepo.GetRedirect(redirectRequest.Url)
 		if err != nil {
+			dbSpan.RecordError(err)
 			logger.Error("Cannot get redirect", zap.String("id", redirectRequest.Id), zap.Int("code", 500), zap.Error(err))
 			dbSpan.End()
 			return c.Status(500).JSON(map[string]interface{}{
@@ -170,6 +173,7 @@ func redirectHandler(c *fiber.Ctx) error {
 		analyticQueue := os.Getenv("ANALYTIC_QUEUE")
 		err := rabbitmq.Publish(analyticQueue, analyticMessage, headers)
 		if err != nil {
+			analyticSpan.RecordError(err)
 			analyticSpan.End()
 			logger.Error("Cannot publish analytic message", zap.String("id", redirectRequest.Id), zap.String("url", originalUrl), zap.String("shorten", redirectRequest.Url), zap.Error(err))
 		}
@@ -191,6 +195,7 @@ func redirectQueueHandler(msg []byte, headers amqp091.Table) error {
 	var redirectMessage shared.RedirectMessage
 	err := json.Unmarshal(msg, &redirectMessage)
 	if err != nil {
+		redirectSpan.RecordError(err)
 		innerLogger.Error("Cannot unmarshal redirect message: %s", zap.Error(err))
 		return err
 	}
@@ -202,6 +207,8 @@ func redirectQueueHandler(msg []byte, headers amqp091.Table) error {
 	ctx, cacheSpan := tracer.StartSpan("SetCache", ctx, trace.WithSpanKind(trace.SpanKindClient))
 	err = cacheClient.Set(redirectMessage.Shorten, redirectMessage.Url, defaultKeyCacheTime)
 	if err != nil {
+		cacheSpan.RecordError(err)
+		cacheSpan.SetStatus(codes.Error, "Cannot set cache")
 		innerLogger.Error("Cannot set cache", zap.String("id", redirectMessage.Id), zap.String("key", redirectMessage.Shorten), zap.String("value", redirectMessage.Url), zap.Error(err))
 	}
 	cacheSpan.End()
@@ -211,6 +218,8 @@ func redirectQueueHandler(msg []byte, headers amqp091.Table) error {
 	_, dbSpan := tracer.StartSpan("UpdateDB", ctx, trace.WithSpanKind(trace.SpanKindClient))
 	err = innerRepo.AddRedirect(redirectMessage)
 	if err != nil {
+		dbSpan.RecordError(err)
+		dbSpan.SetStatus(codes.Error, "Cannot add redirect")
 		innerLogger.Error("Cannot add redirect", zap.String("id", redirectMessage.Id), zap.String("url", redirectMessage.Url), zap.String("shorten", redirectMessage.Shorten), zap.Error(err))
 		return err
 	}

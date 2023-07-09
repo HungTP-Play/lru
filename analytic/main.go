@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -60,6 +61,8 @@ func handleAnalytic(msg []byte, headers amqp091.Table) error {
 
 	err := json.Unmarshal(msg, &analytic)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Cannot unmarshal analytic message")
 		innerLogger.Error("Cannot unmarshal analytic message: %s", zap.Error(err))
 		return err
 	}

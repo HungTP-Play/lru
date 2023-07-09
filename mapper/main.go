@@ -10,6 +10,7 @@ import (
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -109,6 +110,8 @@ func mapHandler(c *fiber.Ctx) error {
 	ctx, mapUrlSpan := tracer.StartSpan("StoreDB", ctx)
 	shortUrl, err := mapRepo.Map(mapUrlRequest)
 	if err != nil {
+		mapUrlSpan.RecordError(err)
+		mapUrlSpan.SetStatus(codes.Error, "Cannot map url")
 		logger.Error("Cannot map url", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
 		mapSpan.End()
 		return c.Status(500).JSON(map[string]interface{}{
@@ -134,6 +137,8 @@ func mapHandler(c *fiber.Ctx) error {
 		}
 		err = rabbitmq.Publish(redirectQueue, redirectMessage, headers)
 		if err != nil {
+			publishRedirectSpan.RecordError(err)
+			publishRedirectSpan.SetStatus(codes.Error, "Cannot publish redirect")
 			publishRedirectSpan.End()
 			logger.Error("Cannot publish redirect", zap.String("id", redirectMessage.Id), zap.Int("code", 500), zap.Error(err))
 		}
@@ -155,6 +160,8 @@ func mapHandler(c *fiber.Ctx) error {
 		}
 		err = rabbitmq.Publish(analyticQueue, analyticMessage, headers)
 		if err != nil {
+			publishAnalyticSpan.RecordError(err)
+			publishAnalyticSpan.SetStatus(codes.Error, "Cannot publish analytic")
 			publishAnalyticSpan.End()
 			logger.Error("Cannot publish analytic", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))
 		}
