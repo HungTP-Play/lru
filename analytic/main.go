@@ -11,6 +11,7 @@ import (
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rabbitmq/amqp091-go"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -45,8 +46,9 @@ func init() {
 	logger.Info("Init done!!!")
 }
 
-func handleAnalytic(msg []byte) error {
-	ctx, span := tracer.StartSpan("handleAnalytic", tracer.Ctx, trace.WithSpanKind(trace.SpanKindServer))
+func handleAnalytic(msg []byte, headers amqp091.Table) error {
+	ctx := shared.ExtractAmqpTraceHeader(headers)
+	ctx, span := tracer.StartSpan("handleAnalytic", ctx, trace.WithSpanKind(trace.SpanKindConsumer))
 	defer span.End()
 	metrics.IncCounter(requestPerSecond, "QUEUE", "analytic")
 	var analytic shared.AnalyticMessage

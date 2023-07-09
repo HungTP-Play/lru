@@ -142,7 +142,7 @@ func shortenHandler(c *fiber.Ctx) error {
 }
 
 func redirectHandler(c *fiber.Ctx) error {
-	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", tracer.Ctx, trace.WithSpanKind(trace.SpanKindClient))
+	ctx, redirectSpan := tracer.StartSpan("RedirectHandler", tracer.Ctx, trace.WithSpanKind(trace.SpanKindClient))
 	defer redirectSpan.End()
 	var body map[string]string
 	requestId := util.GenUUID()
@@ -165,7 +165,7 @@ func redirectHandler(c *fiber.Ctx) error {
 	var redirectResponse shared.RedirectResponse
 	logger.Info("SendToRedirect", zap.String("id", requestId), zap.String("url", redirectRequest.Url))
 
-	redirectCtx, redirectCallSpan := tracer.StartSpan("SendToRedirect", redirectCtx, trace.WithSpanKind(trace.SpanKindClient))
+	ctx, redirectCallSpan := tracer.StartSpan("SendToRedirect", ctx, trace.WithSpanKind(trace.SpanKindClient))
 	defer redirectCallSpan.End()
 
 	mapperUrl = fmt.Sprintf("%v/redirect", mapperUrl)
@@ -173,7 +173,7 @@ func redirectHandler(c *fiber.Ctx) error {
 	url, _ := url.Parse(mapperUrl)
 	req, _ := http.NewRequest("GET", url.String(), bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
-	shared.InjectPropagationHeader(redirectCtx, req)
+	shared.InjectPropagationHeader(ctx, req)
 	resp, err := httpClient.Do(req)
 
 	_ = json.NewDecoder(resp.Body).Decode(&redirectResponse)

@@ -123,7 +123,8 @@ func mapHandler(c *fiber.Ctx) error {
 		Id:        mapUrlRequest.Id,
 	}
 
-	_, publishRedirectSpan := tracer.StartSpan("PublishRedirect", ctx)
+	ctx, publishRedirectSpan := tracer.StartSpan("PublishRedirect", ctx, trace.WithSpanKind(trace.SpanKindProducer))
+	headers := shared.InjectAmqpTraceHeader(ctx)
 	go func() {
 		redirectQueue := os.Getenv("REDIRECT_QUEUE")
 		redirectMessage := &shared.RedirectMessage{
@@ -131,7 +132,7 @@ func mapHandler(c *fiber.Ctx) error {
 			Url:     mapUrlRequest.Url,
 			Shorten: shortUrl,
 		}
-		err = rabbitmq.Publish(redirectQueue, redirectMessage)
+		err = rabbitmq.Publish(redirectQueue, redirectMessage, headers)
 		if err != nil {
 			publishRedirectSpan.End()
 			logger.Error("Cannot publish redirect", zap.String("id", redirectMessage.Id), zap.Int("code", 500), zap.Error(err))
@@ -141,7 +142,8 @@ func mapHandler(c *fiber.Ctx) error {
 	}()
 
 	// Publish to Analytic
-	_, publishAnalyticSpan := tracer.StartSpan("PublishAnalytic", ctx)
+	ctx, publishAnalyticSpan := tracer.StartSpan("PublishAnalytic", ctx, trace.WithSpanKind(trace.SpanKindProducer))
+	headers = shared.InjectAmqpTraceHeader(ctx)
 	go func() {
 		analyticQueue := os.Getenv("ANALYTIC_QUEUE")
 		analyticMessage := &shared.AnalyticMessage{
@@ -151,7 +153,7 @@ func mapHandler(c *fiber.Ctx) error {
 			Type:      "map",
 			Timestamp: time.Now().Unix(),
 		}
-		err = rabbitmq.Publish(analyticQueue, analyticMessage)
+		err = rabbitmq.Publish(analyticQueue, analyticMessage, headers)
 		if err != nil {
 			publishAnalyticSpan.End()
 			logger.Error("Cannot publish analytic", zap.String("id", mapUrlRequest.Id), zap.Int("code", 500), zap.Error(err))

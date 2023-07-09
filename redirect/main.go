@@ -12,6 +12,7 @@ import (
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rabbitmq/amqp091-go"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -104,7 +105,7 @@ func onGratefulShutDown() {
 
 func redirectHandler(c *fiber.Ctx) error {
 	ctx := shared.GetParentContext(c)
-	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", ctx, trace.WithSpanKind(trace.SpanKindServer))
+	ctx, redirectSpan := tracer.StartSpan("RedirectHandler", ctx, trace.WithSpanKind(trace.SpanKindServer))
 	defer redirectSpan.End()
 	var redirectRequest shared.RedirectRequest
 	err := c.BodyParser(&redirectRequest)
@@ -121,7 +122,7 @@ func redirectHandler(c *fiber.Ctx) error {
 	// This called the cache-aside pattern
 	var originalUrl string
 	var redirectResponse shared.RedirectResponse
-	redirectCtx, cacheSpan := tracer.StartSpan("GetCache", redirectCtx)
+	ctx, cacheSpan := tracer.StartSpan("GetCache", ctx, trace.WithSpanKind(trace.SpanKindClient))
 	originalUrl, err = cacheClient.Get(redirectRequest.Url)
 	cacheSpan.End()
 
@@ -135,7 +136,7 @@ func redirectHandler(c *fiber.Ctx) error {
 	} else {
 		logger.Info("Cache miss", zap.String("key", redirectRequest.Url))
 		logger.Error("Cannot get cache", zap.String("id", redirectRequest.Id), zap.String("key", redirectRequest.Url), zap.Error(err))
-		_, dbSpan := tracer.StartSpan("GetRedirect", redirectCtx)
+		_, dbSpan := tracer.StartSpan("GetRedirect", ctx, trace.WithSpanKind(trace.SpanKindClient))
 
 		originalUrl, err = redirectRepo.GetRedirect(redirectRequest.Url)
 		if err != nil {
@@ -155,7 +156,8 @@ func redirectHandler(c *fiber.Ctx) error {
 	}
 
 	// Send analytic message
-	_, analyticSpan := tracer.StartSpan("SendAnalytic", redirectCtx)
+	ctx, analyticSpan := tracer.StartSpan("SendAnalytic", ctx, trace.WithSpanKind(trace.SpanKindProducer))
+	headers := shared.InjectAmqpTraceHeader(ctx)
 	go func() {
 		analyticMessage := shared.AnalyticMessage{
 			Id:        redirectRequest.Id,
@@ -166,7 +168,7 @@ func redirectHandler(c *fiber.Ctx) error {
 		}
 
 		analyticQueue := os.Getenv("ANALYTIC_QUEUE")
-		err := rabbitmq.Publish(analyticQueue, analyticMessage)
+		err := rabbitmq.Publish(analyticQueue, analyticMessage, headers)
 		if err != nil {
 			analyticSpan.End()
 			logger.Error("Cannot publish analytic message", zap.String("id", redirectRequest.Id), zap.String("url", originalUrl), zap.String("shorten", redirectRequest.Url), zap.Error(err))
@@ -177,7 +179,10 @@ func redirectHandler(c *fiber.Ctx) error {
 	return c.Status(200).JSON(redirectResponse)
 }
 
-func redirectQueueHandler(msg []byte) error {
+func redirectQueueHandler(msg []byte, headers amqp091.Table) error {
+	ctx := shared.ExtractAmqpTraceHeader(headers)
+	ctx, redirectSpan := tracer.StartSpan("RedirectQueueHandler", ctx, trace.WithSpanKind(trace.SpanKindConsumer))
+	defer redirectSpan.End()
 	innerLogger := shared.NewLogger("redirect.log", 3, 1024, "info", "redirect")
 	innerLogger.Init()
 
@@ -194,17 +199,22 @@ func redirectQueueHandler(msg []byte) error {
 
 	// Add to cache, use shorten as key, original url as value
 	// This called the write-through cache pattern
+	ctx, cacheSpan := tracer.StartSpan("SetCache", ctx, trace.WithSpanKind(trace.SpanKindClient))
 	err = cacheClient.Set(redirectMessage.Shorten, redirectMessage.Url, defaultKeyCacheTime)
 	if err != nil {
 		innerLogger.Error("Cannot set cache", zap.String("id", redirectMessage.Id), zap.String("key", redirectMessage.Shorten), zap.String("value", redirectMessage.Url), zap.Error(err))
 	}
+	cacheSpan.End()
 
 	innerLogger.Info("Set cache", zap.String("key", redirectMessage.Shorten), zap.String("value", redirectMessage.Url))
+
+	_, dbSpan := tracer.StartSpan("UpdateDB", ctx, trace.WithSpanKind(trace.SpanKindClient))
 	err = innerRepo.AddRedirect(redirectMessage)
 	if err != nil {
 		innerLogger.Error("Cannot add redirect", zap.String("id", redirectMessage.Id), zap.String("url", redirectMessage.Url), zap.String("shorten", redirectMessage.Shorten), zap.Error(err))
 		return err
 	}
+	dbSpan.End()
 
 	return nil
 }
