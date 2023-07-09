@@ -65,6 +65,8 @@ github.com/HungTP-Play/lru/shared v0.12.0 h1:AXbHeroUNBFx7R0VGDBfJWGMDB67FWnqw14
 github.com/HungTP-Play/lru/shared v0.12.0/go.mod h1:Fx3rzpRARIK+PEY6dtYQEc01SvptEWL4cpuI5Wsh5TY=
 github.com/HungTP-Play/lru/shared v0.13.0 h1:roILVWja0MvQsN3H2idFZXZm5fQOAjbf3AYrvCtLwBQ=
 github.com/HungTP-Play/lru/shared v0.13.0/go.mod h1:Fx3rzpRARIK+PEY6dtYQEc01SvptEWL4cpuI5Wsh5TY=
+github.com/HungTP-Play/lru/shared v0.14.0 h1:UPJdaVdzSB5OEtzp8olnsQfH6PFePnFT133TK2mTg3E=
+github.com/HungTP-Play/lru/shared v0.14.0/go.mod h1:Fx3rzpRARIK+PEY6dtYQEc01SvptEWL4cpuI5Wsh5TY=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=

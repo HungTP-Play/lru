@@ -14,6 +14,7 @@ import (
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -70,7 +71,7 @@ func onGratefulShutDown() {
 }
 
 func shortenHandler(c *fiber.Ctx) error {
-	shortenCtx, shortenSpan := tracer.StartSpan("ShortenHandler", tracer.Ctx)
+	shortenCtx, shortenSpan := tracer.StartSpan("ShortenHandler", tracer.Ctx, trace.WithSpanKind(trace.SpanKindClient))
 	defer shortenSpan.End()
 
 	requestID := util.GenUUID()
@@ -104,7 +105,7 @@ func shortenHandler(c *fiber.Ctx) error {
 	var mapUrlResponse shared.MapUrlResponse
 	logger.Info("SendToMapper", zap.String("id", requestID), zap.String("url", mapUrlRequest.Url))
 
-	mapperCtx, mapperCallSpan := tracer.StartSpan("SendToMapper", shortenCtx)
+	mapperCtx, mapperCallSpan := tracer.StartSpan("SendToMapper", shortenCtx, trace.WithSpanKind(trace.SpanKindClient))
 	defer mapperCallSpan.End()
 	mapperUrl = fmt.Sprintf("%v/map", mapperUrl)
 	reqBody, _ := json.Marshal(mapUrlRequest)
@@ -141,7 +142,7 @@ func shortenHandler(c *fiber.Ctx) error {
 }
 
 func redirectHandler(c *fiber.Ctx) error {
-	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", tracer.Ctx)
+	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", tracer.Ctx, trace.WithSpanKind(trace.SpanKindClient))
 	defer redirectSpan.End()
 	var body map[string]string
 	requestId := util.GenUUID()
@@ -164,7 +165,7 @@ func redirectHandler(c *fiber.Ctx) error {
 	var redirectResponse shared.RedirectResponse
 	logger.Info("SendToRedirect", zap.String("id", requestId), zap.String("url", redirectRequest.Url))
 
-	redirectCtx, redirectCallSpan := tracer.StartSpan("SendToRedirect", redirectCtx)
+	redirectCtx, redirectCallSpan := tracer.StartSpan("SendToRedirect", redirectCtx, trace.WithSpanKind(trace.SpanKindClient))
 	defer redirectCallSpan.End()
 
 	mapperUrl = fmt.Sprintf("%v/redirect", mapperUrl)

@@ -10,6 +10,7 @@ import (
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -92,7 +93,7 @@ func metricsHandler(c *fiber.Ctx) error {
 func mapHandler(c *fiber.Ctx) error {
 	var mapUrlRequest shared.MapUrlRequest
 	ctx := shared.GetParentContext(c)
-	_, mapSpan := tracer.StartSpan("Map", ctx)
+	_, mapSpan := tracer.StartSpan("Map", ctx, trace.WithSpanKind(trace.SpanKindServer))
 	defer mapSpan.End()
 
 	body := c.Body()

@@ -12,6 +12,7 @@ import (
 	"github.com/HungTP-Play/lru/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -103,7 +104,7 @@ func onGratefulShutDown() {
 
 func redirectHandler(c *fiber.Ctx) error {
 	ctx := shared.GetParentContext(c)
-	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", ctx)
+	redirectCtx, redirectSpan := tracer.StartSpan("RedirectHandler", ctx, trace.WithSpanKind(trace.SpanKindServer))
 	defer redirectSpan.End()
 	var redirectRequest shared.RedirectRequest
 	err := c.BodyParser(&redirectRequest)
