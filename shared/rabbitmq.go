@@ -52,7 +52,7 @@ func (r *RabbitMQ) Close() error {
 	return r.connection.Close()
 }
 
-func (r *RabbitMQ) Publish(queue string, message interface{}) error {
+func (r *RabbitMQ) Publish(queue string, message interface{}, headers amqp.Table) error {
 	if r.connection.IsClosed() {
 		r.Connect(0)
 	}
@@ -77,12 +77,13 @@ func (r *RabbitMQ) Publish(queue string, message interface{}) error {
 	err = channel.PublishWithContext(r.ctx, "", queue, true, false, amqp.Publishing{
 		ContentType: "application/json",
 		Body:        body,
+		Headers:     headers,
 	})
 
 	return err
 }
 
-func (r *RabbitMQ) Consume(queue string, callback func([]byte) error, numberOfWorker int) error {
+func (r *RabbitMQ) Consume(queue string, callback func(body []byte, headers amqp.Table) error, numberOfWorker int) error {
 	if r.connection.IsClosed() {
 		r.Connect(0)
 	}
@@ -108,7 +109,7 @@ func (r *RabbitMQ) Consume(queue string, callback func([]byte) error, numberOfWo
 	for i := 0; i < numberOfWorker; i++ {
 		go func() {
 			for d := range msgs {
-				err := callback(d.Body)
+				err := callback(d.Body, d.Headers)
 				if err != nil {
 					d.Nack(false, true)
 				}
@@ -155,7 +156,7 @@ func InjectAmqpTraceHeader(ctx context.Context) amqp.Table {
 	return headers
 }
 
-func ExtractTraceHeader(headers amqp.Table) context.Context {
+func ExtractAmqpTraceHeader(headers amqp.Table) context.Context {
 	// Extract the parent span context from the headers
 	carrier := AmqpHeadersCarrier(headers)
 	propagator := propagation.TraceContext{}
